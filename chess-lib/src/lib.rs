@@ -1,3 +1,5 @@
+#[macro_use]
+pub mod board;
 pub mod moves;
 pub mod types;
 
