@@ -119,50 +119,112 @@ mod test {
     use crate::moves::*;
     use crate::types::IntoCoord;
 
-    macro_rules! coords {
-        [ $( $coord:expr ),* ] => {
-            vec![
-                $(
-                    $coord.into_coord(),
-                )*
-            ]
-        };
-    }
-
     macro_rules! test_movement {
-        [ $name:ident: $board:expr, $coord: expr => $expected: expr ] => {
+        [ $name:ident: Given $( a $colour:ident $piece:ident on $coord:expr ),+, the piece on $src:expr, can move to $( $tgt:expr ),+ ] => {
             #[test]
             fn $name() {
-                let board = $board;
-                let expected: Vec<Coordinate> = $expected;
-                let moves = piece_movement(&board, $coord.into_coord());
+                let mut board = empty_board();
+                $(
+                    board[$coord.into_coord() as usize] = Square::Occupied(Colour::$colour, Piece::$piece);
+                )+
+                let mut expected: Vec<Coordinate> = Vec::new();
+                $(
+                    expected.push($tgt.into_coord());
+                )+
+                let moves = piece_movement(&board, $src.into_coord());
                 let moves_set: HashSet<_> = moves.iter().collect();
                 let expected_set: HashSet<_> = expected.iter().collect();
                 assert_eq!(moves_set, expected_set);
             }
         };
+        [ $name:ident: Given $( a $colour:ident $piece:ident on $coord:expr ),+, the piece on $src:expr, cannot move ] => {
+            #[test]
+            fn $name() {
+                let mut board = empty_board();
+                $(
+                    board[$coord.into_coord() as usize] = Square::Occupied(Colour::$colour, Piece::$piece);
+                )+
+                let moves = piece_movement(&board, $src.into_coord());
+                assert_eq!(moves, Vec::new());
+            }
+        };
     }
 
-    test_movement![ white_pawn_moves_up: board!["d4" => White Pawn], "d4" => coords!["d5"] ];
-    test_movement![ black_pawn_moves_down: board!["d4" => Black Pawn], "d4" => coords!["d3"] ];
+    test_movement![ white_pawn_moves_up:
+        Given a White Pawn on "d4",
+        the piece on "d4",
+        can move to "d5"
+    ];
+
+    test_movement![ black_pawn_moves_down:
+        Given a Black Pawn on "d4",
+        the piece on "d4",
+        can move to "d3"
+    ];
 
     test_movement![ pawn_gets_blocked:
-        board!["d4" => White Pawn, "d5" => White Knight], "d4"
-        => coords![]
+        Given a White Pawn on "d4", a Black Pawn on "d5",
+        the piece on "d4",
+        cannot move
     ];
 
     test_movement![ pawn_can_capture_opposite_colour:
-        board!["d4" => White Pawn, "e5" => Black Knight], "d4"
-        => coords!["d5", "e5"]
+        Given a White Pawn on "d4", a Black Knight on "e5",
+        the piece on "d4",
+        can move to "d5", "e5"
     ];
 
     test_movement![ pawn_cannot_capture_same_colour:
-        board!["d4" => White Pawn, "e5" => White Knight], "d4"
-        => coords!["d5"]
+        Given a White Pawn on "d4", a White Knight on "e5",
+        the piece on "d4",
+        can move to "d5"
     ];
 
     test_movement![ black_pawn_can_capture_downwards:
-        board!["d4" => Black Pawn, "c3" => White Knight], "d4"
-        => coords!["c3", "d3"]
+        Given a Black Pawn on "d4", a White Knight on "c3",
+        the piece on "d4",
+        can move to "c3", "d3"
+    ];
+
+    test_movement![ king_unobstructed:
+        Given a White King on "d4",
+        the piece on "d4",
+        can move to "e3", "e4", "e5", "d3", "d5", "c3", "c4", "c5"
+    ];
+
+    test_movement![ king_in_corner:
+        Given a White King on "h8",
+        the piece on "h8",
+        can move to "h7", "g7", "g8"
+    ];
+
+    test_movement![ knight_unobstructed:
+        Given a Black Knight on "d4",
+        the piece on "d4",
+        can move to "b5", "c6", "e6", "f5", "f3", "e2", "c2", "b3"
+    ];
+
+    test_movement![ knight_in_corner:
+        Given a White Knight on "a1",
+        the piece on "a1",
+        can move to "b3", "c2"
+    ];
+
+    test_movement![ knight_blocked:
+        Given a White Knight on "a1", a White Queen on "c2",
+        the piece on "a1",
+        can move to "b3"
+    ];
+
+    test_movement![ knight_capture:
+        Given a Black Knight on "a1", a White Queen on "c2",
+        the piece on "a1",
+        can move to "b3", "c2"
+    ];
+
+    test_movement![ rook_unobstructed:
+        Given a White Rook on "d4",
+        the piece on "d4",
+        can move to "a4", "b4", "c4", "e4", "f4", "g4", "h4", "d1", "d2", "d3", "d5", "d6", "d7", "d8"
     ];
 }
