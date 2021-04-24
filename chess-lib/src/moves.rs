@@ -506,12 +506,4 @@ mod tests {
         the piece on "d4",
         can move to "e5", "f6", "g7", "h8", "c5", "e3", "f2", "g1"
     ];
-
-    #[test]
-    fn perft_1() {
-        let state = crate::fen::load_fen(crate::fen::STARTING_POSITION);
-        let moves = legal_moves(&state);
-        println!("{:?}", moves);
-        assert_eq!(moves.len(), 20);
-    }
 }

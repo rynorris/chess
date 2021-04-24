@@ -2,6 +2,7 @@
 pub mod board;
 pub mod fen;
 pub mod moves;
+pub mod perft;
 pub mod types;
 
 #[cfg(test)]
