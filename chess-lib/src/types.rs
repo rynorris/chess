@@ -72,6 +72,7 @@ impl <'a> IntoCoord for &'a str {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Move {
     Normal(Coordinate, Coordinate),
     Promotion(Coordinate, Coordinate, Piece),

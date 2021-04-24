@@ -12,8 +12,6 @@ pub fn load_fen(fen: &str) -> GameState {
     // FEN starts at a8.
     let mut coord = 0x07;
     for c in positions.chars() {
-        println!("c = {}, coord = {:x}", c, coord);
-
         // Just do this naively.
         match c {
             'Q' => board[coord as usize] = Square::Occupied(Colour::White, Piece::Queen),

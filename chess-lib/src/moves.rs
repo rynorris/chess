@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use crate::board::{directions, is_in_bounds, rank, Direction, Line};
 use crate::types::{Board, Colour, Coordinate, GameState, Move, Piece, Square};
 
-pub fn legal_moves(state: &mut GameState) -> Vec<Move> {
+pub fn legal_moves(state: &GameState) -> Vec<Move> {
     let colour = state.active_colour;
 
     let side = match colour {
@@ -101,9 +101,9 @@ pub fn legal_moves(state: &mut GameState) -> Vec<Move> {
     for m in moves_without_suicidal_king {
         match m {
             Move::Normal(src, tgt) => {
-                // Expand pawn moves to last rank.
                 match state.board[src as usize] {
                     Square::Occupied(_, Piece::Pawn) => {
+                        // Expand pawn moves to last rank.
                         // Don't have to check colours since pawns can't move backwards.
                         if rank(tgt) == 7 || rank(tgt) == 0 {
                             moves.push(Move::Promotion(src, tgt, Piece::Queen));
@@ -130,9 +130,12 @@ pub fn legal_moves(state: &mut GameState) -> Vec<Move> {
 
     if side.can_castle_queenside {
         if !(
-            square_under_attack(&board_without_king, 0x10 & home_rank, colour) ||
             square_under_attack(&board_without_king, 0x20 & home_rank, colour) ||
-            square_under_attack(&board_without_king, 0x30 & home_rank, colour)
+            square_under_attack(&board_without_king, 0x30 & home_rank, colour) ||
+            square_under_attack(&board_without_king, 0x40 & home_rank, colour) ||
+            board_without_king[0x10 & home_rank as usize] != Square::Empty ||
+            board_without_king[0x20 & home_rank as usize] != Square::Empty ||
+            board_without_king[0x30 & home_rank as usize] != Square::Empty
         ) {
             moves.push(Move::LongCastle);
         }
@@ -140,9 +143,11 @@ pub fn legal_moves(state: &mut GameState) -> Vec<Move> {
 
     if side.can_castle_kingside {
         if !(
-            square_under_attack(&board_without_king, 0x30 & home_rank, colour) ||
             square_under_attack(&board_without_king, 0x40 & home_rank, colour) ||
-            square_under_attack(&board_without_king, 0x50 & home_rank, colour)
+            square_under_attack(&board_without_king, 0x50 & home_rank, colour) ||
+            square_under_attack(&board_without_king, 0x60 & home_rank, colour) ||
+            board_without_king[0x50 & home_rank as usize] != Square::Empty ||
+            board_without_king[0x60 & home_rank as usize] != Square::Empty
         ) {
             moves.push(Move::Castle);
         }
@@ -206,16 +211,18 @@ fn attacks_on_square(board: &Board, coord: Coordinate, colour: Colour) -> Vec<At
     // Check knights.
     directions::KNIGHT.as_ref().into_iter().for_each(|dir| {
         let knight_coord = coord.wrapping_add(*dir);
-        match board[knight_coord as usize] {
-            Square::Occupied(col, Piece::Knight) => {
-                if col != colour {
-                    // Taking the knight is the only way to block the check.
-                    let mut blocks: HashSet<Coordinate> = HashSet::with_capacity(1);
-                    blocks.insert(knight_coord);
-                    attacks.push(Attack::Check(blocks))
-                }
-            },
-            _ => (),
+        if is_in_bounds(knight_coord) {
+            match board[knight_coord as usize] {
+                Square::Occupied(col, Piece::Knight) => {
+                    if col != colour {
+                        // Taking the knight is the only way to block the check.
+                        let mut blocks: HashSet<Coordinate> = HashSet::with_capacity(1);
+                        blocks.insert(knight_coord);
+                        attacks.push(Attack::Check(blocks))
+                    }
+                },
+                _ => (),
+            }
         }
     });
 
@@ -299,9 +306,17 @@ fn pawn_moves(board: &Board, coord: Coordinate, colour: Colour) -> Vec<Coordinat
 
     let mut moves: Vec<Coordinate> = Vec::with_capacity(3);
 
-    moves.extend(Line::new(coord, fwd).take(1).filter(|m| can_move_to(board, *m)));
+    let initial_pawn_rank = match colour {
+        Colour::White => 1,
+        Colour::Black => 6,
+    };
+
+    let fwd_range = if rank(coord) == initial_pawn_rank { 2 } else { 1 };
+
+    moves.extend(Line::new(coord, fwd).take(fwd_range).filter(|m| can_move_to(board, *m)));
     moves.extend(Line::new(coord, d1).take(1).filter(|m| can_capture(board, colour, *m)));
     moves.extend(Line::new(coord, d2).take(1).filter(|m| can_capture(board, colour, *m)));
+
 
     moves
 }
@@ -491,4 +506,12 @@ mod tests {
         the piece on "d4",
         can move to "e5", "f6", "g7", "h8", "c5", "e3", "f2", "g1"
     ];
+
+    #[test]
+    fn perft_1() {
+        let state = crate::fen::load_fen(crate::fen::STARTING_POSITION);
+        let moves = legal_moves(&state);
+        println!("{:?}", moves);
+        assert_eq!(moves.len(), 20);
+    }
 }
