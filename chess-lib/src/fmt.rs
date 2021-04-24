@@ -18,8 +18,8 @@ pub fn format_move(m: Move) -> String {
             let s = format!("{}{}", format_coord(src), format_coord(tgt));
             s
         },
-        Move::Promotion(src, tgt, _) => {
-            let s = format!("{}{}", format_coord(src), format_coord(tgt));
+        Move::Promotion(src, tgt, pc) => {
+            let s = format!("{}{}{}", format_coord(src), format_coord(tgt), format_piece(pc));
             s
         },
         Move::Castle => "O-O".to_owned(),

@@ -54,6 +54,7 @@ mod tests {
         };
     }
 
+    // Example positions and results taken from https://www.chessprogramming.org/Perft_Results
     perft_test![ starting_1:
         Starting at position STARTING_POSITION,
         at depth 1, the number of possible moves is: 20
@@ -74,7 +75,79 @@ mod tests {
         at depth 4, the number of possible moves is: 197_281
     ];
 
+    perft_test![ position_3_1:
+        Starting at position "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - ",
+        at depth 1, the number of possible moves is: 14
+    ];
+
+    perft_test![ position_3_2:
+        Starting at position "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - ",
+        at depth 2, the number of possible moves is: 191
+    ];
+
+    perft_test![ position_4_1:
+        Starting at position "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1",
+        at depth 1, the number of possible moves is: 6
+    ];
+
+    perft_test![ position_4_2:
+        Starting at position "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1",
+        at depth 2, the number of possible moves is: 264
+    ];
+
+    perft_test![ position_5_1:
+        Starting at position "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8",
+        at depth 1, the number of possible moves is: 44
+    ];
+
+    perft_test![ position_5_2:
+        Starting at position "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8",
+        at depth 2, the number of possible moves is: 1_486
+    ];
+
+    perft_test![ position_5_3:
+        Starting at position "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8",
+        at depth 3, the number of possible moves is: 62_379
+    ];
+
+    perft_test![ position_6_1:
+        Starting at position "r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10 ",
+        at depth 1, the number of possible moves is: 46
+    ];
+
+    perft_test![ position_6_2:
+        Starting at position "r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10 ",
+        at depth 2, the number of possible moves is: 2_079
+    ];
+
+    perft_test![ position_6_3:
+        Starting at position "r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10 ",
+        at depth 3, the number of possible moves is: 89_890
+    ];
+
+    // This position stress tests promotion bugs.
+    // Taken from http://www.rocechess.ch/perft.html
+    perft_test![ promotions_1:
+        Starting at position "n1n5/PPPk4/8/8/8/8/4Kppp/5N1N b - - 0 1",
+        at depth 1, the number of possible moves is: 24
+    ];
+
+    perft_test![ promotions_2:
+        Starting at position "n1n5/PPPk4/8/8/8/8/4Kppp/5N1N b - - 0 1",
+        at depth 2, the number of possible moves is: 496
+    ];
+
+    perft_test![ promotions_3:
+        Starting at position "n1n5/PPPk4/8/8/8/8/4Kppp/5N1N b - - 0 1",
+        at depth 3, the number of possible moves is: 9_483
+    ];
+
     /*
+    perft_test![ position_5_4:
+        Starting at position "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8",
+        at depth 4, the number of possible moves is: 2_103_487
+    ];
+
     use rand::seq::SliceRandom;
     use crate::moves::legal_moves;
     #[test]
@@ -93,13 +166,13 @@ mod tests {
     }
 
     #[test]
-    fn divide_3() {
-        let state = load_fen("rnbqkbnr/ppp1pppp/8/3N4/8/8/PPPPPPPP/R1BQKBNR b KQkq - 0 1");
+    fn divide() {
+        let state = load_fen("r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P1RPP/R2Q2K1 b kq - 0 1");
         //let mut state = load_fen(STARTING_POSITION);
         //state.make_move(crate::types::Move::Normal(0x10, 0x22));
         //state.make_move(crate::types::Move::Normal(0x36, 0x35));
         crate::board::print_board(&state.board);
-        let counts = divide(&state, 1);
+        let counts = crate::perft::divide(&state, 1);
         let mut lines: Vec<String> = counts.iter().map(|(k, v)| {
             return format!("{}: {}", k, v);
         }).collect();

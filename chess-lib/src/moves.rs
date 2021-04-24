@@ -130,12 +130,12 @@ pub fn legal_moves(state: &GameState) -> Vec<Move> {
 
     if side.can_castle_queenside {
         if !(
-            square_under_attack(&board_without_king, 0x20 & home_rank, colour) ||
-            square_under_attack(&board_without_king, 0x30 & home_rank, colour) ||
-            square_under_attack(&board_without_king, 0x40 & home_rank, colour) ||
-            board_without_king[0x10 & home_rank as usize] != Square::Empty ||
-            board_without_king[0x20 & home_rank as usize] != Square::Empty ||
-            board_without_king[0x30 & home_rank as usize] != Square::Empty
+            square_under_attack(&board_without_king, 0x20 | home_rank, colour) ||
+            square_under_attack(&board_without_king, 0x30 | home_rank, colour) ||
+            square_under_attack(&board_without_king, 0x40 | home_rank, colour) ||
+            board_without_king[0x10 | home_rank as usize] != Square::Empty ||
+            board_without_king[0x20 | home_rank as usize] != Square::Empty ||
+            board_without_king[0x30 | home_rank as usize] != Square::Empty
         ) {
             moves.push(Move::LongCastle);
         }
@@ -143,11 +143,11 @@ pub fn legal_moves(state: &GameState) -> Vec<Move> {
 
     if side.can_castle_kingside {
         if !(
-            square_under_attack(&board_without_king, 0x40 & home_rank, colour) ||
-            square_under_attack(&board_without_king, 0x50 & home_rank, colour) ||
-            square_under_attack(&board_without_king, 0x60 & home_rank, colour) ||
-            board_without_king[0x50 & home_rank as usize] != Square::Empty ||
-            board_without_king[0x60 & home_rank as usize] != Square::Empty
+            square_under_attack(&board_without_king, 0x40 | home_rank, colour) ||
+            square_under_attack(&board_without_king, 0x50 | home_rank, colour) ||
+            square_under_attack(&board_without_king, 0x60 | home_rank, colour) ||
+            board_without_king[0x50 | home_rank as usize] != Square::Empty ||
+            board_without_king[0x60 | home_rank as usize] != Square::Empty
         ) {
             moves.push(Move::Castle);
         }
@@ -195,7 +195,7 @@ fn attacks_on_square(board: &Board, coord: Coordinate, colour: Colour) -> Vec<At
                             pin = Some(c);
                         }
                     } else {
-                        if piece_attacks_in_direction(colour, piece, directions::reverse(*dir)) && piece_attacks_at_distance(piece, dist) {
+                        if piece_attacks_in_direction(col, piece, directions::reverse(*dir)) && piece_attacks_at_distance(piece, dist) {
                             // Attack is real.
                             match pin {
                                 None => attacks.push(Attack::Check(blocks)),

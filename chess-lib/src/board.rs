@@ -151,6 +151,12 @@ mod tests {
     }
 
     #[test]
+    fn reverse_directions() {
+        assert_eq!(reverse(UP_LEFT), DOWN_RIGHT);
+        assert_eq!(reverse(UP_RIGHT), DOWN_LEFT);
+    }
+
+    #[test]
     fn line_right() {
         assert_eq!(generate_line(0x00, RIGHT), vec![0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70]);
         assert_eq!(generate_line(0x50, RIGHT), vec![0x60, 0x70]);
