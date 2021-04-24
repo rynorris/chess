@@ -1,4 +1,4 @@
-use crate::types::{Board, Coordinate, Square};
+use crate::types::{Board, Colour, Coordinate, Piece, Square};
 
 
 pub fn empty_board() -> Board {
@@ -16,6 +16,31 @@ macro_rules! board {
             b
         }
      };
+}
+
+pub fn print_board(board: &Board) {
+    for minus_rank in 0..=7 {
+        let rank = 7 - minus_rank;
+        for file in 0..=7 {
+            let square_char: char = match board[coord(file, rank) as usize] {
+                Square::Empty => '.',
+                Square::Occupied(Colour::White, Piece::King) => 'K',
+                Square::Occupied(Colour::White, Piece::Queen) => 'Q',
+                Square::Occupied(Colour::White, Piece::Rook) => 'R',
+                Square::Occupied(Colour::White, Piece::Bishop) => 'B',
+                Square::Occupied(Colour::White, Piece::Knight) => 'N',
+                Square::Occupied(Colour::White, Piece::Pawn) => 'P',
+                Square::Occupied(Colour::Black, Piece::King) => 'k',
+                Square::Occupied(Colour::Black, Piece::Queen) => 'q',
+                Square::Occupied(Colour::Black, Piece::Rook) => 'r',
+                Square::Occupied(Colour::Black, Piece::Bishop) => 'b',
+                Square::Occupied(Colour::Black, Piece::Knight) => 'n',
+                Square::Occupied(Colour::Black, Piece::Pawn) => 'p',
+            };
+            print!("{}", square_char);
+        }
+        print!("\n");
+    }
 }
 
 pub type Direction = u8;
@@ -46,6 +71,18 @@ pub mod directions {
         DOWN.wrapping_add(LEFT.wrapping_mul(2)),
         DOWN.wrapping_add(RIGHT.wrapping_mul(2)),
     ];
+
+    pub fn is_straight(dir: Direction) -> bool {
+        dir == RIGHT || dir == LEFT || dir == UP || dir == DOWN
+    }
+
+    pub fn is_diagonal(dir: Direction) -> bool {
+        dir == UP_RIGHT || dir == UP_LEFT || dir == DOWN_RIGHT || dir == DOWN_LEFT
+    }
+
+    pub fn reverse(dir: Direction) -> Direction {
+        0u8.wrapping_sub(dir)
+    }
 }
 
 pub struct Line {
@@ -80,13 +117,13 @@ pub const fn is_in_bounds(coord: Coordinate) -> bool {
 }
 
 #[inline]
-pub const fn coord(rank: u8, file: u8) -> Coordinate {
-    ((rank & 0xF) << 4) + (file & 0xF)
+pub const fn rank(coord: Coordinate) -> u8 {
+    coord & 0xF
 }
 
 #[inline]
-pub const fn rank_file(coord: Coordinate) -> (u8, u8) {
-    (coord >> 4, coord & 0xF)
+pub const fn coord(file: u8, rank: u8) -> Coordinate {
+    ((file & 0xF) << 4) | (rank & 0xF)
 }
 
 #[cfg(test)]
@@ -99,6 +136,13 @@ mod tests {
         let mut coords: Vec<Coordinate> = Vec::with_capacity(8);
         coords.extend(line);
         coords
+    }
+
+    #[test]
+    fn coord_from_rank_and_file() {
+        assert_eq!(coord(0, 0), 0x00);
+        assert_eq!(coord(3, 5), 0x35);
+        assert_eq!(coord(6, 7), 0x67);
     }
 
     #[test]

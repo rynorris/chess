@@ -1,3 +1,19 @@
+use std::collections::HashSet;
+
+pub struct GameState {
+    pub board: Board,
+    pub active_colour: Colour,
+    pub white: SideState,
+    pub black: SideState,
+}
+
+pub struct SideState {
+    pub piece_coords: HashSet<Coordinate>,
+    pub king_coord: Coordinate,
+    pub can_castle_kingside: bool,
+    pub can_castle_queenside: bool,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Colour {
     White,
