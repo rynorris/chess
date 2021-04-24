@@ -1,9 +1,11 @@
 #[macro_use]
 pub mod board;
 pub mod fen;
+pub mod fmt;
 pub mod game;
 pub mod moves;
 pub mod perft;
+pub mod pgn;
 pub mod types;
 
 #[cfg(test)]

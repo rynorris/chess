@@ -122,6 +122,11 @@ pub const fn rank(coord: Coordinate) -> u8 {
 }
 
 #[inline]
+pub const fn file(coord: Coordinate) -> u8 {
+    (coord >> 4) & 0xF
+}
+
+#[inline]
 pub const fn coord(file: u8, rank: u8) -> Coordinate {
     ((file & 0xF) << 4) | (rank & 0xF)
 }

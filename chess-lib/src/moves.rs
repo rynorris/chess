@@ -156,12 +156,13 @@ pub fn legal_moves(state: &GameState) -> Vec<Move> {
     moves
 }
 
+#[derive(Debug)]
 enum Attack {
     Check(HashSet<Coordinate>),
     Pin(Coordinate, HashSet<Coordinate>),
 }
 
-fn square_under_attack(board: &Board, coord: Coordinate, colour: Colour) -> bool {
+pub fn square_under_attack(board: &Board, coord: Coordinate, colour: Colour) -> bool {
     attacks_on_square(board, coord, colour)
         .iter()
         .any(|atk| match atk {
@@ -200,6 +201,9 @@ fn attacks_on_square(board: &Board, coord: Coordinate, colour: Colour) -> Vec<At
                                 None => attacks.push(Attack::Check(blocks)),
                                 Some(p) => attacks.push(Attack::Pin(p, blocks)),
                             }
+                            break;
+                        } else {
+                            // Blocked by opposing non-attacking piece.
                             break;
                         }
                     }
@@ -295,7 +299,7 @@ pub fn piece_movement(board: &Board, coord: Coordinate) -> Vec<Coordinate> {
 }
 
 fn moves_in_line(board: &Board, colour: Colour, line: Line, limit: usize) -> Vec<Coordinate> {
-    until_blocked(board, colour, &mut line.take(limit))
+    until_blocked(board, colour, true, &mut line.take(limit))
 }
 
 fn pawn_moves(board: &Board, coord: Coordinate, colour: Colour) -> Vec<Coordinate> {
@@ -313,7 +317,7 @@ fn pawn_moves(board: &Board, coord: Coordinate, colour: Colour) -> Vec<Coordinat
 
     let fwd_range = if rank(coord) == initial_pawn_rank { 2 } else { 1 };
 
-    moves.extend(Line::new(coord, fwd).take(fwd_range).filter(|m| can_move_to(board, *m)));
+    moves.extend(until_blocked(board, colour, false, &mut Line::new(coord, fwd).take(fwd_range)));
     moves.extend(Line::new(coord, d1).take(1).filter(|m| can_capture(board, colour, *m)));
     moves.extend(Line::new(coord, d2).take(1).filter(|m| can_capture(board, colour, *m)));
 
@@ -350,7 +354,7 @@ fn can_capture(board: &Board, colour: Colour, coord: Coordinate) -> bool {
         }
 }
 
-fn until_blocked(board: &Board, colour: Colour, moves_iter: &mut dyn Iterator<Item=Coordinate>) -> Vec<Coordinate> {
+fn until_blocked(board: &Board, colour: Colour, can_capture: bool, moves_iter: &mut dyn Iterator<Item=Coordinate>) -> Vec<Coordinate> {
     let mut moves: Vec<Coordinate> = Vec::with_capacity(7);
 
     loop {
@@ -359,7 +363,7 @@ fn until_blocked(board: &Board, colour: Colour, moves_iter: &mut dyn Iterator<It
                 match board[m as usize] {
                     Square::Empty => moves.push(m),
                     Square::Occupied(c, _) => {
-                        if c != colour {
+                        if c != colour && can_capture {
                             moves.push(m);
                         }
                         break;

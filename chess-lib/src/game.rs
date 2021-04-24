@@ -1,3 +1,4 @@
+use crate::moves::square_under_attack;
 use crate::types::{Colour, Coordinate, GameState, Move, Square};
 
 impl GameState {
@@ -42,6 +43,15 @@ impl GameState {
         }
     }
 
+    pub fn is_in_check(&self) -> bool {
+        let king = match self.active_colour {
+            Colour::White => self.white.king_coord,
+            Colour::Black => self.black.king_coord,
+        };
+
+        square_under_attack(&self.board, king, self.active_colour)
+    }
+
     fn move_piece(&mut self, src: Coordinate, tgt: Coordinate) {
         let colour = self.active_colour;
         let (active_side, other_side) = match colour {
@@ -78,6 +88,7 @@ impl GameState {
         self.board[src as usize] = Square::Empty;
 
         active_side.piece_coords.remove(&src);
+        active_side.piece_coords.insert(tgt);
         other_side.piece_coords.remove(&tgt);
 
         if active_side.king_coord == src {
