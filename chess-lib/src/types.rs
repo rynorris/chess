@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct GameState {
     pub board: Board,
     pub active_colour: Colour,
@@ -7,6 +8,7 @@ pub struct GameState {
     pub black: SideState,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SideState {
     pub piece_coords: HashSet<Coordinate>,
     pub king_coord: Coordinate,

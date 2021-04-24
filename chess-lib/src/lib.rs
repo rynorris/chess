@@ -1,6 +1,7 @@
 #[macro_use]
 pub mod board;
 pub mod fen;
+pub mod game;
 pub mod moves;
 pub mod perft;
 pub mod types;
