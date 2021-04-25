@@ -5,6 +5,7 @@ pub struct GameState {
     pub active_colour: Colour,
     pub white: SideState,
     pub black: SideState,
+    pub en_passant: Option<Coordinate>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

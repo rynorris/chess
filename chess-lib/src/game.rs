@@ -1,5 +1,6 @@
+use crate::board::{coord, directions, file, rank};
 use crate::moves::square_under_attack;
-use crate::types::{Colour, Coordinate, GameState, Move, Square};
+use crate::types::{Colour, Coordinate, GameState, Move, Piece, Square};
 
 impl GameState {
     pub fn make_move(&mut self, mv: Move) {
@@ -54,6 +55,11 @@ impl GameState {
 
     fn move_piece(&mut self, src: Coordinate, tgt: Coordinate) {
         let colour = self.active_colour;
+        let piece = match self.board[src as usize] {
+            Square::Occupied(_, p) => p,
+            Square::Empty => panic!("No piece on source square!"),
+        };
+
         let (active_side, other_side) = match colour {
             Colour::White => (&mut self.white, &mut self.black),
             Colour::Black => (&mut self.black, &mut self.white),
@@ -86,6 +92,10 @@ impl GameState {
 
         self.board[tgt as usize] = self.board[src as usize];
         self.board[src as usize] = Square::Empty;
+        if piece == Piece::Pawn && self.en_passant.map(|ep| ep == tgt).unwrap_or(false) {
+            let taken_coord = tgt.wrapping_add(if colour == Colour::White { directions::DOWN } else { directions::UP });
+            self.board[taken_coord as usize] = Square::Empty;
+        }
 
         if active_side.king_coord == src {
             active_side.king_coord = tgt;
@@ -106,6 +116,15 @@ impl GameState {
             other_side.can_castle_queenside = false;
         } else if tgt == other_kingside_rook {
             other_side.can_castle_kingside = false;
+        }
+
+        // Check for En Passant.
+        let src_rank = rank(src);
+        let tgt_rank = rank(tgt);
+        if piece == Piece::Pawn && (tgt_rank == src_rank + 2 || src_rank == tgt_rank + 2) {
+            self.en_passant = Some(coord(file(src), (src_rank + tgt_rank) / 2));
+        } else {
+            self.en_passant = None;
         }
     }
 }

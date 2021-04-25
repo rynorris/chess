@@ -77,6 +77,7 @@ pub fn load_fen(fen: &str) -> GameState {
         active_colour,
         white,
         black,
+        en_passant: None,
     }
 }
 

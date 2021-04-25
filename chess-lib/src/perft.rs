@@ -75,6 +75,11 @@ mod tests {
         at depth 4, the number of possible moves is: 197_281
     ];
 
+    perft_test![ starting_5:
+        Starting at position STARTING_POSITION,
+        at depth 5, the number of possible moves is: 4_865_609
+    ];
+
     perft_test![ position_3_1:
         Starting at position "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - ",
         at depth 1, the number of possible moves is: 14
@@ -85,6 +90,21 @@ mod tests {
         at depth 2, the number of possible moves is: 191
     ];
 
+    perft_test![ position_3_3:
+        Starting at position "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - ",
+        at depth 3, the number of possible moves is: 2_812
+    ];
+
+    perft_test![ position_3_4:
+        Starting at position "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - ",
+        at depth 4, the number of possible moves is: 43_238
+    ];
+
+    perft_test![ position_3_5:
+        Starting at position "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - ",
+        at depth 5, the number of possible moves is: 674_624
+    ];
+
     perft_test![ position_4_1:
         Starting at position "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1",
         at depth 1, the number of possible moves is: 6
@@ -93,6 +113,16 @@ mod tests {
     perft_test![ position_4_2:
         Starting at position "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1",
         at depth 2, the number of possible moves is: 264
+    ];
+
+    perft_test![ position_4_3:
+        Starting at position "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1",
+        at depth 3, the number of possible moves is: 9_467
+    ];
+
+    perft_test![ position_4_4:
+        Starting at position "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1",
+        at depth 4, the number of possible moves is: 422_333
     ];
 
     perft_test![ position_5_1:

@@ -40,7 +40,7 @@ pub fn legal_moves(state: &GameState) -> Vec<Move> {
     });
 
     let moves_without_restrictions = piece_coords.flat_map(|coord| {
-        piece_movement(&state.board, coord)
+        piece_movement(&state.board, coord, state.en_passant)
             .map(move |tgt| Move::Normal(coord, tgt))
     });
 
@@ -48,6 +48,17 @@ pub fn legal_moves(state: &GameState) -> Vec<Move> {
     let moves_respecting_checks = moves_without_restrictions.filter(|m| {
         match m {
             Move::Normal(src, tgt) => {
+                // Special case allow en passant past this check since we'll check it manually
+                // later.
+                match state.board[*src as usize] {
+                    Square::Occupied(_, Piece::Pawn) => {
+                        if state.en_passant.map(|ep| ep == *tgt).unwrap_or(false) {
+                            return true;
+                        }
+                    },
+                    _ => (),
+                };
+
                 allowed_non_king_moves & (1 << *tgt) != 0 || *src == king_coord
             },
             _ => true,
@@ -100,6 +111,18 @@ pub fn legal_moves(state: &GameState) -> Vec<Move> {
                             moves.push(Move::Promotion(src, tgt, Piece::Rook));
                             moves.push(Move::Promotion(src, tgt, Piece::Bishop));
                             moves.push(Move::Promotion(src, tgt, Piece::Knight));
+                        } else if state.en_passant.map(|ep| ep == tgt).unwrap_or(false) {
+                            // Remove en-passant if it would leave the king in check.
+                            // Can't think of a better way to do this than just evaluating the new
+                            // board for checks.
+                            let mut new_board = state.board.clone();
+                            let taken_coord = tgt.wrapping_add(if colour == Colour::White { directions::DOWN } else { directions::UP });
+                            new_board[tgt as usize] = new_board[src as usize];
+                            new_board[src as usize] = Square::Empty;
+                            new_board[taken_coord as usize] = Square::Empty;
+                            if !square_under_attack(&new_board, side.king_coord, colour) {
+                                moves.push(m);
+                            }
                         } else {
                             moves.push(m);
                         }
@@ -325,18 +348,26 @@ struct PawnMoves<'a> {
     board: &'a Board,
     coord: Coordinate,
     colour: Colour,
+    en_passant: Option<Coordinate>,
 
     step: u8,
 }
 
 impl <'a> PawnMoves<'a> {
-    fn new(board: &'a Board, coord: Coordinate, colour: Colour) -> PawnMoves {
+    fn new(board: &'a Board, coord: Coordinate, colour: Colour, en_passant: Option<Coordinate>) -> PawnMoves {
         PawnMoves{
             board,
             coord,
             colour,
+            en_passant,
             step: 0,
         }
+    }
+
+    fn can_capture(&self, tgt: Coordinate) -> bool {
+        let regular_capture = can_capture(self.board, self.colour, tgt);
+        let en_passant = self.en_passant.map(|ep| ep == tgt).unwrap_or(false);
+        regular_capture || en_passant
     }
 }
 
@@ -377,7 +408,7 @@ impl <'a> Iterator for PawnMoves<'a> {
                     // Diagonal capture 1.
                     let tgt = self.coord.wrapping_add(d1);
                     self.step += 1;
-                    if is_in_bounds(tgt) && can_capture(self.board, self.colour, tgt) {
+                    if is_in_bounds(tgt) && self.can_capture(tgt) {
                         return Some(tgt);
                     }
                 },
@@ -385,7 +416,7 @@ impl <'a> Iterator for PawnMoves<'a> {
                     // Diagonal capture 1.
                     let tgt = self.coord.wrapping_add(d2);
                     self.step += 1;
-                    if is_in_bounds(tgt) && can_capture(self.board, self.colour, tgt) {
+                    if is_in_bounds(tgt) && self.can_capture(tgt) {
                         return Some(tgt);
                     }
                 },
@@ -396,7 +427,7 @@ impl <'a> Iterator for PawnMoves<'a> {
     }
 }
 
-fn piece_movement(board: &Board, coord: Coordinate) -> PieceMoves {
+fn piece_movement(board: &Board, coord: Coordinate, en_passant: Option<Coordinate>) -> PieceMoves {
     let (colour, piece) = match board[coord as usize] {
         Square::Occupied(p, c) => (p, c),
         Square::Empty => panic!("No piece on square {}", coord),
@@ -419,7 +450,7 @@ fn piece_movement(board: &Board, coord: Coordinate) -> PieceMoves {
             PieceMoves::Knight(LineMoves::new(board, coord, colour, directions::KNIGHT.as_ref().into_iter(), 1))
         },
         Piece::Pawn => {
-            PieceMoves::Pawn(PawnMoves::new(&board, coord, colour))
+            PieceMoves::Pawn(PawnMoves::new(&board, coord, colour, en_passant))
         },
     }
 }
@@ -501,7 +532,7 @@ mod tests {
                 $(
                     expected.push($tgt.into_coord());
                 )+
-                let moves = piece_movement(&board, $src.into_coord());
+                let moves = piece_movement(&board, $src.into_coord(), None);
                 let moves_set: HashSet<Coordinate> = moves.collect();
                 let expected_set: HashSet<Coordinate> = expected.into_iter().collect();
                 assert_eq!(moves_set, expected_set);
@@ -514,7 +545,7 @@ mod tests {
                 $(
                     board[$coord.into_coord() as usize] = Square::Occupied(Colour::$colour, Piece::$piece);
                 )+
-                let moves = piece_movement(&board, $src.into_coord());
+                let moves = piece_movement(&board, $src.into_coord(), None);
                 assert_eq!(moves.collect::<Vec<Coordinate>>(), Vec::new());
             }
         };
