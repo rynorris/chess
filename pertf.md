@@ -1,0 +1,20 @@
+Perft history
+=============
+
+Depth 5
+-------
+
+1b8aa16847af5d224c2d8946825de68bcfe94b06 -> 4.75s
+ce0dbe7d581df28f3505b8cc4bba70f72e572ef7 -> 3.05s
+6021540c58c6176f45ba6d1f16fc07295040405f -> 1.93s
+70b75ad9f41ffd66fa4b5b35a0d35ca622f2a20d -> 1.39s
+8ce0b425d2b2ec5f72d426b7211ec44b6e5a6fa0 -> 0.97s
+5798512903f3e29c449595d6e5fc48452c3e75f8 -> 0.60s
+4541168629dfaf2b8e4d4fcb085eab04f4e163b7 -> 0.53s
+
+Depth 6
+-------
+
+stockfish -> ~0.9s
+
+4541168629dfaf2b8e4d4fcb085eab04f4e163b7 -> 12.6s
