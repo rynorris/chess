@@ -1,3 +1,4 @@
+use std::time::Instant;
 use clap::{AppSettings, Clap};
 
 #[derive(Clap)]
@@ -27,12 +28,19 @@ fn main() {
     match opts.subcmd {
         SubCommand::Divide(div) => {
             let state = chess_lib::fen::load_fen(&div.fen);
+
+            let before = Instant::now();
             let counts = chess_lib::perft::divide(&state, div.depth);
+            let after = Instant::now();
+
             let mut lines: Vec<String> = counts.iter().map(|(k, v)| {
                 return format!("{}: {}", k, v);
             }).collect();
             lines.sort();
             lines.iter().for_each(|l| println!("{}", l));
+
+            let duration = after - before;
+            println!("Took: {}s", duration.as_secs_f32());
         },
     }
 }

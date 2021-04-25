@@ -4,3 +4,6 @@ members = [
     "chess-ai",
     "chess-cli",
 ]
+
+[profile.release]
+debug = true
