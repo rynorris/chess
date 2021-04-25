@@ -344,9 +344,9 @@ impl <'a> Iterator for PawnMoves<'a> {
     type Item = Coordinate;
 
     fn next(&mut self) -> Option<Coordinate> {
-        let (fwd, d1, d2) = match self.colour {
-            Colour::White => (directions::UP, directions::UP_LEFT, directions::UP_RIGHT),
-            Colour::Black => (directions::DOWN, directions::DOWN_LEFT, directions::DOWN_RIGHT),
+        let (fwd, d1, d2, home_rank) = match self.colour {
+            Colour::White => (directions::UP, directions::UP_LEFT, directions::UP_RIGHT, 0x01),
+            Colour::Black => (directions::DOWN, directions::DOWN_LEFT, directions::DOWN_RIGHT, 0x06),
         };
 
         loop {
@@ -367,9 +367,9 @@ impl <'a> Iterator for PawnMoves<'a> {
                     // Double forward step.
                     // Note we skip this entirely if the square in front is blocked.
                     // so no need to check for a piece in between.
-                    let tgt = self.coord.wrapping_add(fwd * 2);
+                    let tgt = self.coord.wrapping_add(fwd.wrapping_mul(2));
                     self.step += 1;
-                    if is_in_bounds(tgt) && self.board[tgt as usize] == Square::Empty {
+                    if rank(self.coord) == home_rank && is_in_bounds(tgt) && self.board[tgt as usize] == Square::Empty {
                         return Some(tgt);
                     }
                 },
