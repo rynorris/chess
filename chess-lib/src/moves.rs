@@ -1,5 +1,5 @@
 use std::collections::{HashMap, HashSet};
-use crate::board::{directions, is_in_bounds, rank, Direction, Line};
+use crate::board::{directions, is_in_bounds, rank, Coords, Direction, Line};
 use crate::types::{Board, Colour, Coordinate, GameState, Move, Piece, Square};
 
 pub fn legal_moves(state: &GameState) -> Vec<Move> {
@@ -40,12 +40,15 @@ pub fn legal_moves(state: &GameState) -> Vec<Move> {
     });
 
     // Now get all moves disregarding restrictions.
-    let piece_coords = &side.piece_coords;
+    let piece_coords = Coords::new().filter(|c| match state.board[*c as usize] {
+        Square::Occupied(col, _) => col == colour,
+        _ => false,
+    });
 
-    let moves_without_restrictions = piece_coords.iter().flat_map(|coord| {
-        piece_movement(&state.board, *coord)
+    let moves_without_restrictions = piece_coords.flat_map(|coord| {
+        piece_movement(&state.board, coord)
             .iter()
-            .map(move |tgt| Move::Normal(*coord, *tgt))
+            .map(move |tgt| Move::Normal(coord, *tgt))
             .collect::<Vec<Move>>()
     });
 

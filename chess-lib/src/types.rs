@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct GameState {
@@ -10,7 +9,6 @@ pub struct GameState {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SideState {
-    pub piece_coords: HashSet<Coordinate>,
     pub king_coord: Coordinate,
     pub can_castle_kingside: bool,
     pub can_castle_queenside: bool,

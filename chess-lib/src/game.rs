@@ -87,10 +87,6 @@ impl GameState {
         self.board[tgt as usize] = self.board[src as usize];
         self.board[src as usize] = Square::Empty;
 
-        active_side.piece_coords.remove(&src);
-        active_side.piece_coords.insert(tgt);
-        other_side.piece_coords.remove(&tgt);
-
         if active_side.king_coord == src {
             active_side.king_coord = tgt;
         }

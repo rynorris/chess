@@ -1,5 +1,4 @@
-use std::collections::HashSet;
-use crate::board::{coord, empty_board};
+use crate::board::{Coords, empty_board};
 use crate::types::{Board, GameState, Colour, Coordinate, Piece, SideState, Square};
 
 pub const STARTING_POSITION: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -43,14 +42,12 @@ pub fn load_fen(fen: &str) -> GameState {
 
     // Initialize side states from board.
     let mut white = SideState{
-        piece_coords: piece_coords(&board, Colour::White),
         king_coord: expect_king(&board, Colour::White),
         can_castle_kingside: false,
         can_castle_queenside: false,
     };
 
     let mut black = SideState{
-        piece_coords: piece_coords(&board, Colour::Black),
         king_coord: expect_king(&board, Colour::Black),
         can_castle_kingside: false,
         can_castle_queenside: false,
@@ -84,46 +81,16 @@ pub fn load_fen(fen: &str) -> GameState {
 }
 
 fn expect_king(board: &Board, colour: Colour) -> Coordinate {
-    let king_coords = find_pieces(board, colour, Piece::King);
+    let king_coords: Vec<Coordinate> = Coords::new().filter(|c| match board[*c as usize] {
+        Square::Occupied(col, Piece::King) => col == colour,
+        _ => false,
+    }).collect();
+
     if king_coords.len() == 1 {
         *king_coords.iter().next().unwrap()
     } else {
         panic!("Didn't find single king");
     }
-}
-
-fn find_pieces(board: &Board, colour: Colour, piece: Piece) -> HashSet<Coordinate> {
-    let mut coords = HashSet::new();
-    for file in 0..=7 {
-        for rank in 0..=7 {
-            match board[coord(file, rank) as usize] {
-                Square::Occupied(col, p) => {
-                    if col == colour && p == piece {
-                        coords.insert(coord(file, rank));
-                    }
-                },
-                Square::Empty => (),
-            }
-        }
-    }
-    coords
-}
-
-fn piece_coords(board: &Board, colour: Colour) -> HashSet<Coordinate> {
-    let mut coords = HashSet::new();
-    for file in 0..=7 {
-        for rank in 0..=7 {
-            match board[coord(file, rank) as usize] {
-                Square::Occupied(col, _) => {
-                    if col == colour {
-                        coords.insert(coord(file, rank));
-                    }
-                },
-                Square::Empty => (),
-            }
-        }
-    }
-    coords
 }
 
 #[cfg(test)]
@@ -166,16 +133,6 @@ mod tests {
         assert_eq!(state.board[0x50], Square::Occupied(Colour::White, Piece::Bishop));
         assert_eq!(state.board[0x60], Square::Occupied(Colour::White, Piece::Knight));
         assert_eq!(state.board[0x70], Square::Occupied(Colour::White, Piece::Rook));
-
-        assert_eq!(state.white.piece_coords, vec![
-            0x00, 0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70,
-            0x01, 0x11, 0x21, 0x31, 0x41, 0x51, 0x61, 0x71,
-        ].into_iter().collect::<HashSet<Coordinate>>());
-
-        assert_eq!(state.black.piece_coords, vec![
-            0x07, 0x17, 0x27, 0x37, 0x47, 0x57, 0x67, 0x77,
-            0x06, 0x16, 0x26, 0x36, 0x46, 0x56, 0x66, 0x76,
-        ].into_iter().collect::<HashSet<Coordinate>>());
 
         assert_eq!(state.white.king_coord, 0x40);
         assert_eq!(state.black.king_coord, 0x47);

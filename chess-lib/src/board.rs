@@ -111,6 +111,33 @@ impl Iterator for Line {
     }
 }
 
+pub struct Coords {
+    cur: Coordinate,
+}
+
+impl Coords {
+    pub fn new() -> Coords {
+        Coords{ cur: 0xF0 }
+    }
+}
+
+impl Iterator for Coords {
+    type Item = Coordinate;
+
+    fn next(&mut self) -> Option<Coordinate> {
+        self.cur = self.cur.wrapping_add(0x10);
+        if !is_in_bounds(self.cur) {
+            self.cur = (self.cur & 0x0F) + 0x01;
+        }
+
+        if is_in_bounds(self.cur) {
+            Some(self.cur)
+        } else {
+            None
+        }
+    }
+}
+
 #[inline]
 pub const fn is_in_bounds(coord: Coordinate) -> bool {
     coord & 0x88 == 0
