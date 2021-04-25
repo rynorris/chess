@@ -251,7 +251,7 @@ enum PieceMoves<'a> {
     Queen(LineMoves<'a>),
     Rook(LineMoves<'a>),
     Bishop(LineMoves<'a>),
-    Knight(std::vec::IntoIter<Coordinate>),
+    Knight(LineMoves<'a>),
     Pawn(std::vec::IntoIter<Coordinate>),
 }
 
@@ -277,7 +277,7 @@ struct LineMoves<'a> {
     range: usize,
     dirs: std::slice::Iter<'a, Direction>,
 
-    cur_dir: Option<std::vec::IntoIter<Coordinate>>,
+    cur_dir: Option<UntilBlocked<'a, std::iter::Take<Line>>>,
 }
 
 impl <'a> LineMoves<'a> {
@@ -341,7 +341,7 @@ fn piece_movement(board: &Board, coord: Coordinate) -> PieceMoves {
             PieceMoves::Bishop(LineMoves::new(board, coord, colour, directions::DIAGONALS.as_ref().into_iter(), 8))
         },
         Piece::Knight => {
-            PieceMoves::Knight(knight_moves(&board, coord, colour).into_iter())
+            PieceMoves::Knight(LineMoves::new(board, coord, colour, directions::KNIGHT.as_ref().into_iter(), 1))
         },
         Piece::Pawn => {
             PieceMoves::Pawn(pawn_moves(&board, coord, colour).into_iter())
@@ -349,8 +349,8 @@ fn piece_movement(board: &Board, coord: Coordinate) -> PieceMoves {
     }
 }
 
-fn moves_in_line(board: &Board, colour: Colour, line: Line, limit: usize) -> Vec<Coordinate> {
-    UntilBlocked::new(board, colour, true, &mut line.take(limit)).collect()
+fn moves_in_line<'a>(board: &'a Board, colour: Colour, line: Line, limit: usize) -> UntilBlocked<'a, std::iter::Take<Line>> {
+    UntilBlocked::new(board, colour, true, line.take(limit))
 }
 
 fn pawn_moves(board: &Board, coord: Coordinate, colour: Colour) -> Vec<Coordinate> {
@@ -372,30 +372,7 @@ fn pawn_moves(board: &Board, coord: Coordinate, colour: Colour) -> Vec<Coordinat
     moves.extend(Line::new(coord, d1).take(1).filter(|m| can_capture(board, colour, *m)));
     moves.extend(Line::new(coord, d2).take(1).filter(|m| can_capture(board, colour, *m)));
 
-
     moves
-}
-
-fn knight_moves(board: &Board, coord: Coordinate, colour: Colour) -> Vec<Coordinate> {
-    let mut moves: Vec<Coordinate> = Vec::with_capacity(8);
-
-    moves.extend(
-        directions::KNIGHT
-            .as_ref()
-            .into_iter()
-            .map(|d| coord.wrapping_add(*d))
-            .filter(|m| is_in_bounds(*m))
-            .filter(|m| can_move_to(board, *m) || can_capture(board, colour, *m))
-    );
-
-    moves
-}
-
-fn can_move_to(board: &Board, coord: Coordinate) -> bool {
-        match board[coord as usize] {
-            Square::Empty => true,
-            Square::Occupied(_, _) => false,
-        }
 }
 
 fn can_capture(board: &Board, colour: Colour, coord: Coordinate) -> bool {
