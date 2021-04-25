@@ -1,4 +1,3 @@
-use std::collections::{HashMap, HashSet};
 use crate::board::{directions, is_in_bounds, rank, Coords, Direction, Line};
 use crate::types::{Board, Colour, Coordinate, GameState, Move, Piece, Square};
 
@@ -15,26 +14,21 @@ pub fn legal_moves(state: &GameState) -> Vec<Move> {
     // Calculate restrictions on allowed moves based on checks and pins.
     let attacks = attacks_on_square(&state.board, king_coord, colour);
 
-    // If there are checks, this set will contain the squares which stop ALL checks.
+    // If there are checks, this bitfield will contain the squares which stop ALL checks.
     // i.e. The only legal moves are moves that move to these squares, or king moves.
-    let mut blocks: Option<HashSet<Coordinate>> = None;
+    let mut allowed_non_king_moves: u128 = 0xFFFFFFFF_FFFFFFFF_FFFFFFFF_FFFFFFFF;
 
     // This is a map from a pinned piece, to the coordinates it can move to without
     // breaking the pin.
     // i.e. if a piece is in this map, it can ONLY move to the listed squares.
-    let mut pins: HashMap<Coordinate, HashSet<Coordinate>> = HashMap::new();
+    let mut pins: [Option<u128>; 120] = [None; 120];
     attacks.into_iter().for_each(|atk| {
         match atk {
             Attack::Check(bs) => {
-                if blocks.is_none() {
-                    blocks = Some(bs);
-                } else {
-                    let all = blocks.take().unwrap();
-                    blocks.replace(all.intersection(&bs).map(|c| *c).collect());
-                }
+                allowed_non_king_moves &= bs;
             },
             Attack::Pin(c, bs) => {
-                pins.insert(c, bs);
+                pins[c as usize] = Some(bs);
             },
         }
     });
@@ -52,16 +46,11 @@ pub fn legal_moves(state: &GameState) -> Vec<Move> {
 
     // Move only allowed if it blocks all checks, or is king move.
     let moves_respecting_checks = moves_without_restrictions.filter(|m| {
-        match blocks {
-            None => true,
-            Some(ref bs) => {
-                    match m {
-                        Move::Normal(src, tgt) => {
-                            bs.contains(tgt) || *src == king_coord
-                        },
-                        _ => true,
-                    }
+        match m {
+            Move::Normal(src, tgt) => {
+                allowed_non_king_moves & (1 << *tgt) != 0 || *src == king_coord
             },
+            _ => true,
         }
     });
 
@@ -69,8 +58,8 @@ pub fn legal_moves(state: &GameState) -> Vec<Move> {
     let moves_respecting_pins = moves_respecting_checks.filter(|m| {
         match m {
             Move::Normal(src, tgt) => {
-                match pins.get(src) {
-                    Some(allowed) => allowed.contains(tgt),
+                match pins[*src as usize] {
+                    Some(allowed_moves) => allowed_moves & (1 << *tgt) != 0,
                     None => true,
                 }
             },
@@ -159,8 +148,8 @@ pub fn legal_moves(state: &GameState) -> Vec<Move> {
 
 #[derive(Debug)]
 enum Attack {
-    Check(HashSet<Coordinate>),
-    Pin(Coordinate, HashSet<Coordinate>),
+    Check(u128),
+    Pin(Coordinate, u128),
 }
 
 pub fn square_under_attack(board: &Board, coord: Coordinate, colour: Colour) -> bool {
@@ -178,13 +167,13 @@ fn attacks_on_square(board: &Board, coord: Coordinate, colour: Colour) -> Vec<At
     // Regular pieces.
     directions::ALL.as_ref().into_iter().for_each(|dir| {
         let mut dist = 0;
-        let mut blocks: HashSet<Coordinate> = HashSet::with_capacity(7);
+        let mut blocks = 0u128;
         let mut pin: Option<Coordinate> = None;
 
         // Find pins and straight line checks.
         for c in Line::new(coord, *dir) {
             dist += 1;
-            blocks.insert(c);
+            blocks |= 1 << c;
             match board[c as usize] {
                 Square::Empty => continue,
                 Square::Occupied(col, piece) => {
@@ -221,9 +210,7 @@ fn attacks_on_square(board: &Board, coord: Coordinate, colour: Colour) -> Vec<At
                 Square::Occupied(col, Piece::Knight) => {
                     if col != colour {
                         // Taking the knight is the only way to block the check.
-                        let mut blocks: HashSet<Coordinate> = HashSet::with_capacity(1);
-                        blocks.insert(knight_coord);
-                        attacks.push(Attack::Check(blocks))
+                        attacks.push(Attack::Check(1 << knight_coord))
                     }
                 },
                 _ => (),
