@@ -302,7 +302,7 @@ pub fn piece_movement(board: &Board, coord: Coordinate) -> Vec<Coordinate> {
 }
 
 fn moves_in_line(board: &Board, colour: Colour, line: Line, limit: usize) -> Vec<Coordinate> {
-    until_blocked(board, colour, true, &mut line.take(limit))
+    UntilBlocked::new(board, colour, true, &mut line.take(limit)).collect()
 }
 
 fn pawn_moves(board: &Board, coord: Coordinate, colour: Colour) -> Vec<Coordinate> {
@@ -320,7 +320,7 @@ fn pawn_moves(board: &Board, coord: Coordinate, colour: Colour) -> Vec<Coordinat
 
     let fwd_range = if rank(coord) == initial_pawn_rank { 2 } else { 1 };
 
-    moves.extend(until_blocked(board, colour, false, &mut Line::new(coord, fwd).take(fwd_range)));
+    moves.extend(UntilBlocked::new(board, colour, false, &mut Line::new(coord, fwd).take(fwd_range)));
     moves.extend(Line::new(coord, d1).take(1).filter(|m| can_capture(board, colour, *m)));
     moves.extend(Line::new(coord, d2).take(1).filter(|m| can_capture(board, colour, *m)));
 
@@ -357,27 +357,51 @@ fn can_capture(board: &Board, colour: Colour, coord: Coordinate) -> bool {
         }
 }
 
-fn until_blocked(board: &Board, colour: Colour, can_capture: bool, moves_iter: &mut dyn Iterator<Item=Coordinate>) -> Vec<Coordinate> {
-    let mut moves: Vec<Coordinate> = Vec::with_capacity(7);
+struct UntilBlocked<'a, I> {
+    coords: I,
+    board: &'a Board,
+    colour: Colour,
+    blocked: bool,
+    allow_captures: bool,
+}
 
-    loop {
-        match moves_iter.next() {
-            Some(m) => {
-                match board[m as usize] {
-                    Square::Empty => moves.push(m),
-                    Square::Occupied(c, _) => {
-                        if c != colour && can_capture {
-                            moves.push(m);
-                        }
-                        break;
-                    },
-                };
-            },
-            None => break,
+impl <'a, I : Iterator<Item=Coordinate>> UntilBlocked<'a, I> {
+    fn new(board: &'a Board, colour: Colour, allow_captures: bool, coords: I) -> UntilBlocked<I> {
+        UntilBlocked{
+            coords,
+            board,
+            colour,
+            blocked: false,
+            allow_captures,
         }
     }
+}
 
-    moves
+impl <'a, I : Iterator<Item=Coordinate>> Iterator for UntilBlocked<'a, I> {
+    type Item = Coordinate;
+
+    fn next(&mut self) -> Option<Coordinate> {
+        if self.blocked {
+            return None;
+        }
+
+        let nxt = match self.coords.next() {
+            Some(c) => c,
+            None => return None,
+        };
+
+        match self.board[nxt as usize] {
+            Square::Empty => Some(nxt),
+            Square::Occupied(c, _) => {
+                self.blocked = true;
+                if c != self.colour && self.allow_captures {
+                    Some(nxt)
+                } else {
+                    None
+                }
+            },
+        }
+    }
 }
 
 #[cfg(test)]
