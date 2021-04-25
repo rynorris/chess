@@ -47,9 +47,7 @@ pub fn legal_moves(state: &GameState) -> Vec<Move> {
 
     let moves_without_restrictions = piece_coords.flat_map(|coord| {
         piece_movement(&state.board, coord)
-            .iter()
-            .map(move |tgt| Move::Normal(coord, *tgt))
-            .collect::<Vec<Move>>()
+            .map(move |tgt| Move::Normal(coord, tgt))
     });
 
     // Move only allowed if it blocks all checks, or is king move.
@@ -261,9 +259,82 @@ fn piece_attacks_in_direction(colour: Colour, piece: Piece, dir: Direction) -> b
     }
 }
 
-pub fn piece_movement(board: &Board, coord: Coordinate) -> Vec<Coordinate> {
-    let mut moves: Vec<Coordinate> = Vec::with_capacity(32);
+enum PieceMoves<'a> {
+    King(LineMoves<'a>),
+    Queen(LineMoves<'a>),
+    Rook(LineMoves<'a>),
+    Bishop(LineMoves<'a>),
+    Knight(std::vec::IntoIter<Coordinate>),
+    Pawn(std::vec::IntoIter<Coordinate>),
+}
 
+impl <'a> Iterator for PieceMoves<'a> {
+    type Item = Coordinate;
+
+    fn next(&mut self) -> Option<Coordinate> {
+        match self {
+            PieceMoves::King(iter) => iter.next(),
+            PieceMoves::Queen(iter) => iter.next(),
+            PieceMoves::Rook(iter) => iter.next(),
+            PieceMoves::Bishop(iter) => iter.next(),
+            PieceMoves::Knight(iter) => iter.next(),
+            PieceMoves::Pawn(iter) => iter.next(),
+        }
+    }
+}
+
+struct LineMoves<'a> {
+    board: &'a Board,
+    coord: Coordinate,
+    colour: Colour,
+    range: usize,
+    dirs: std::slice::Iter<'a, Direction>,
+
+    cur_dir: Option<std::vec::IntoIter<Coordinate>>,
+}
+
+impl <'a> LineMoves<'a> {
+    fn new(
+        board: &'a Board,
+        coord: Coordinate,
+        colour: Colour,
+        dirs: std::slice::Iter<'a, Direction>,
+        range: usize,
+    ) -> LineMoves<'a> {
+        LineMoves{
+            board,
+            coord,
+            colour,
+            range,
+            dirs: dirs,
+            cur_dir: None,
+        }
+    }
+}
+
+impl <'a> Iterator for LineMoves<'a> {
+    type Item = Coordinate;
+
+    fn next(&mut self) -> Option<Coordinate> {
+        loop {
+            let next_coord = self.cur_dir.as_mut().and_then(|iter| iter.next());
+
+            match next_coord {
+                Some(c) => return Some(c),
+                None => {
+                    match self.dirs.next() {
+                        Some(dir) => {
+                            self.cur_dir = Some(moves_in_line(self.board, self.colour, Line::new(self.coord, *dir), self.range).into_iter());
+                        },
+                        None => return None,
+                    }
+                },
+            }
+        }
+    }
+}
+
+fn piece_movement(board: &Board, coord: Coordinate) -> PieceMoves {
     let (colour, piece) = match board[coord as usize] {
         Square::Occupied(p, c) => (p, c),
         Square::Empty => panic!("No piece on square {}", coord),
@@ -271,34 +342,24 @@ pub fn piece_movement(board: &Board, coord: Coordinate) -> Vec<Coordinate> {
 
     match piece {
         Piece::King => {
-            directions::ALL.as_ref().into_iter().for_each(|dir| {
-                moves.append(&mut moves_in_line(&board, colour, Line::new(coord, *dir), 1));
-            });
+            PieceMoves::King(LineMoves::new(board, coord, colour, directions::ALL.as_ref().into_iter(), 1))
         },
         Piece::Queen => {
-            directions::ALL.as_ref().into_iter().for_each(|dir| {
-                moves.append(&mut moves_in_line(&board, colour, Line::new(coord, *dir), 8));
-            });
+            PieceMoves::Queen(LineMoves::new(board, coord, colour, directions::ALL.as_ref().into_iter(), 8))
         },
         Piece::Rook => {
-            directions::STRAIGHTS.as_ref().into_iter().for_each(|dir| {
-                moves.append(&mut moves_in_line(&board, colour, Line::new(coord, *dir), 8));
-            });
+            PieceMoves::Rook(LineMoves::new(board, coord, colour, directions::STRAIGHTS.as_ref().into_iter(), 8))
         },
         Piece::Bishop => {
-            directions::DIAGONALS.as_ref().into_iter().for_each(|dir| {
-                moves.append(&mut moves_in_line(&board, colour, Line::new(coord, *dir), 8));
-            });
+            PieceMoves::Bishop(LineMoves::new(board, coord, colour, directions::DIAGONALS.as_ref().into_iter(), 8))
         },
         Piece::Knight => {
-            moves.append(&mut knight_moves(&board, coord, colour));
+            PieceMoves::Knight(knight_moves(&board, coord, colour).into_iter())
         },
         Piece::Pawn => {
-            moves.append(&mut pawn_moves(&board, coord, colour));
+            PieceMoves::Pawn(pawn_moves(&board, coord, colour).into_iter())
         },
-    };
-
-    moves
+    }
 }
 
 fn moves_in_line(board: &Board, colour: Colour, line: Line, limit: usize) -> Vec<Coordinate> {
@@ -424,8 +485,8 @@ mod tests {
                     expected.push($tgt.into_coord());
                 )+
                 let moves = piece_movement(&board, $src.into_coord());
-                let moves_set: HashSet<_> = moves.iter().collect();
-                let expected_set: HashSet<_> = expected.iter().collect();
+                let moves_set: HashSet<Coordinate> = moves.collect();
+                let expected_set: HashSet<Coordinate> = expected.into_iter().collect();
                 assert_eq!(moves_set, expected_set);
             }
         };
@@ -437,7 +498,7 @@ mod tests {
                     board[$coord.into_coord() as usize] = Square::Occupied(Colour::$colour, Piece::$piece);
                 )+
                 let moves = piece_movement(&board, $src.into_coord());
-                assert_eq!(moves, Vec::new());
+                assert_eq!(moves.collect::<Vec<Coordinate>>(), Vec::new());
             }
         };
     }
