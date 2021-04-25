@@ -252,7 +252,7 @@ enum PieceMoves<'a> {
     Rook(LineMoves<'a>),
     Bishop(LineMoves<'a>),
     Knight(LineMoves<'a>),
-    Pawn(std::vec::IntoIter<Coordinate>),
+    Pawn(PawnMoves<'a>),
 }
 
 impl <'a> Iterator for PieceMoves<'a> {
@@ -321,6 +321,81 @@ impl <'a> Iterator for LineMoves<'a> {
     }
 }
 
+struct PawnMoves<'a> {
+    board: &'a Board,
+    coord: Coordinate,
+    colour: Colour,
+
+    step: u8,
+}
+
+impl <'a> PawnMoves<'a> {
+    fn new(board: &'a Board, coord: Coordinate, colour: Colour) -> PawnMoves {
+        PawnMoves{
+            board,
+            coord,
+            colour,
+            step: 0,
+        }
+    }
+}
+
+impl <'a> Iterator for PawnMoves<'a> {
+    type Item = Coordinate;
+
+    fn next(&mut self) -> Option<Coordinate> {
+        let (fwd, d1, d2) = match self.colour {
+            Colour::White => (directions::UP, directions::UP_LEFT, directions::UP_RIGHT),
+            Colour::Black => (directions::DOWN, directions::DOWN_LEFT, directions::DOWN_RIGHT),
+        };
+
+        loop {
+            match self.step {
+                0 => {
+                    // Single forward step.
+                    let tgt = self.coord.wrapping_add(fwd);
+                    if is_in_bounds(tgt) && self.board[tgt as usize] == Square::Empty {
+                        self.step += 1;
+                        return Some(tgt);
+                    } else {
+                        // If the square in front was blocked, don't bother checking the square 2
+                        // in front.
+                        self.step += 2;
+                    }
+                },
+                1 => {
+                    // Double forward step.
+                    // Note we skip this entirely if the square in front is blocked.
+                    // so no need to check for a piece in between.
+                    let tgt = self.coord.wrapping_add(fwd * 2);
+                    self.step += 1;
+                    if is_in_bounds(tgt) && self.board[tgt as usize] == Square::Empty {
+                        return Some(tgt);
+                    }
+                },
+                2 => {
+                    // Diagonal capture 1.
+                    let tgt = self.coord.wrapping_add(d1);
+                    self.step += 1;
+                    if is_in_bounds(tgt) && can_capture(self.board, self.colour, tgt) {
+                        return Some(tgt);
+                    }
+                },
+                3 => {
+                    // Diagonal capture 1.
+                    let tgt = self.coord.wrapping_add(d2);
+                    self.step += 1;
+                    if is_in_bounds(tgt) && can_capture(self.board, self.colour, tgt) {
+                        return Some(tgt);
+                    }
+                },
+                4 => return None,
+                _ => panic!("Invalid iterator state: step={}", self.step),
+            }
+        }
+    }
+}
+
 fn piece_movement(board: &Board, coord: Coordinate) -> PieceMoves {
     let (colour, piece) = match board[coord as usize] {
         Square::Occupied(p, c) => (p, c),
@@ -344,35 +419,13 @@ fn piece_movement(board: &Board, coord: Coordinate) -> PieceMoves {
             PieceMoves::Knight(LineMoves::new(board, coord, colour, directions::KNIGHT.as_ref().into_iter(), 1))
         },
         Piece::Pawn => {
-            PieceMoves::Pawn(pawn_moves(&board, coord, colour).into_iter())
+            PieceMoves::Pawn(PawnMoves::new(&board, coord, colour))
         },
     }
 }
 
 fn moves_in_line<'a>(board: &'a Board, colour: Colour, line: Line, limit: usize) -> UntilBlocked<'a, std::iter::Take<Line>> {
     UntilBlocked::new(board, colour, true, line.take(limit))
-}
-
-fn pawn_moves(board: &Board, coord: Coordinate, colour: Colour) -> Vec<Coordinate> {
-    let (fwd, d1, d2) = match colour {
-        Colour::White => (directions::UP, directions::UP_LEFT, directions::UP_RIGHT),
-        Colour::Black => (directions::DOWN, directions::DOWN_LEFT, directions::DOWN_RIGHT),
-    };
-
-    let mut moves: Vec<Coordinate> = Vec::with_capacity(3);
-
-    let initial_pawn_rank = match colour {
-        Colour::White => 1,
-        Colour::Black => 6,
-    };
-
-    let fwd_range = if rank(coord) == initial_pawn_rank { 2 } else { 1 };
-
-    moves.extend(UntilBlocked::new(board, colour, false, &mut Line::new(coord, fwd).take(fwd_range)));
-    moves.extend(Line::new(coord, d1).take(1).filter(|m| can_capture(board, colour, *m)));
-    moves.extend(Line::new(coord, d2).take(1).filter(|m| can_capture(board, colour, *m)));
-
-    moves
 }
 
 fn can_capture(board: &Board, colour: Colour, coord: Coordinate) -> bool {
