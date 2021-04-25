@@ -18,3 +18,4 @@ Depth 6
 stockfish -> ~0.9s
 
 4541168629dfaf2b8e4d4fcb085eab04f4e163b7 -> 12.6s
+5419f83b0f85ef6bc64edc6e4aaff59659d440b7 -> 9.5s
