@@ -10,3 +10,5 @@ edition = "2018"
 chess-ai = { path = "../chess-ai" }
 chess-lib = { path = "../chess-lib" }
 clap = "3.0.0-beta.2"
+termion = "1.5"
+tui = "0.15"
