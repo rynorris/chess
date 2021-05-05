@@ -6,6 +6,7 @@ pub struct GameState {
     pub white: SideState,
     pub black: SideState,
     pub en_passant: Option<Coordinate>,
+    pub fifty_move_clock: u8,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -21,7 +22,7 @@ pub enum Colour {
     Black,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub enum Piece {
     King,
     Queen,
@@ -73,7 +74,7 @@ impl <'a> IntoCoord for &'a str {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub enum Move {
     Normal(Coordinate, Coordinate),
     Promotion(Coordinate, Coordinate, Piece),

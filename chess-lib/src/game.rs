@@ -4,6 +4,8 @@ use crate::types::{Colour, Coordinate, GameState, Move, Piece, Square};
 
 impl GameState {
     pub fn make_move(&mut self, mv: Move) {
+        self.fifty_move_clock += 1;
+
         match mv {
             Move::Normal(src, tgt) => {
                 self.move_piece(src, tgt);
@@ -90,6 +92,8 @@ impl GameState {
             Colour::Black => 0x47,
         };
 
+        let is_capture = self.board[tgt as usize] != Square::Empty;
+
         self.board[tgt as usize] = self.board[src as usize];
         self.board[src as usize] = Square::Empty;
         if piece == Piece::Pawn && self.en_passant.map(|ep| ep == tgt).unwrap_or(false) {
@@ -125,6 +129,11 @@ impl GameState {
             self.en_passant = Some(coord(file(src), (src_rank + tgt_rank) / 2));
         } else {
             self.en_passant = None;
+        }
+
+        // Adjust clocks.
+        if piece == Piece::Pawn || is_capture {
+            self.fifty_move_clock = 0;
         }
     }
 }

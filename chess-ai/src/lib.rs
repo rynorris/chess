@@ -1,3 +1,7 @@
+pub mod chess;
+pub mod montecarlo;
+
+
 #[cfg(test)]
 mod tests {
     #[test]

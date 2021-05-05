@@ -78,6 +78,7 @@ pub fn load_fen(fen: &str) -> GameState {
         white,
         black,
         en_passant: None,
+        fifty_move_clock: 0,
     }
 }
 
