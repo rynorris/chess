@@ -123,7 +123,7 @@ pub enum Square {
 pub type Board = [Square; 120];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct BitBoard(u64);
+pub struct BitBoard(pub u64);
 
 impl <T : Into<u64>> std::ops::BitAnd<T> for BitBoard {
     type Output = BitBoard;
@@ -156,7 +156,7 @@ impl Into<u64> for BitBoard {
 }
 
 impl BitBoard {
-    const EMPTY: BitBoard = BitBoard(0);
+    pub const EMPTY: BitBoard = BitBoard(0);
 
     pub fn move_if_present(self, from: BitCoord, to: BitCoord) -> BitBoard {
         if self & from != BitBoard(0) {
@@ -178,7 +178,7 @@ pub trait IntoCoord {
 
 // u64 with exactly 1 bit filled, representing a square.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct BitCoord(u64);
+pub struct BitCoord(pub u64);
 
 impl <T : Into<u64>> std::ops::BitAnd<T> for BitCoord {
     type Output = BitCoord;
@@ -201,6 +201,14 @@ impl std::ops::Not for BitCoord {
 
     fn not(self) -> Self::Output {
         BitCoord(!self.0)
+    }
+}
+
+impl <T : Into<u8>> std::ops::Shl<T> for BitCoord {
+    type Output = BitCoord;
+
+    fn shl(self, rhs: T) -> Self::Output {
+        BitCoord(self.0 << rhs.into())
     }
 }
 

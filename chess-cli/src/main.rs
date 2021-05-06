@@ -24,6 +24,7 @@ struct Opts {
 enum SubCommand {
     Analyze(Analyze),
     Divide(Divide),
+    Magic(Magic),
 }
 
 #[derive(Clap)]
@@ -42,6 +43,12 @@ struct Analyze {
 
     #[clap(short)]
     simulations: u64,
+}
+
+#[derive(Clap)]
+struct Magic {
+    #[clap(short)]
+    piece: String,
 }
 
 fn main() -> Result<(), io::Error> {
@@ -123,6 +130,44 @@ fn main() -> Result<(), io::Error> {
                     }
                 }
             }
+        },
+        SubCommand::Magic(cmd) => {
+            let (generator, optimal): (fn (u64, chess_lib::types::BitCoord) -> Option<chess_lib::magic::Magic>, usize) = match cmd.piece.as_str() {
+                "rook" => (chess_lib::magic::Magic::generate_rook, 256),
+                "bishop" => (chess_lib::magic::Magic::generate_bishop, 64),
+                _ => panic!("Unknown piece: {}", cmd.piece),
+            };
+
+            println!("=== {} ===", cmd.piece);
+            let mut total_size = 0;
+            for c in 0..64 {
+                let mut best: u64 = 0;
+                let mut best_size: usize = usize::MAX;
+
+                let mut iterations = 0;
+                while iterations < 100_000 && best_size > optimal {
+                    iterations += 1;
+                    let magic = rand::random::<u64>();
+                    let coord = chess_lib::types::BitCoord(1 << c);
+                    match generator(magic, coord) {
+                        Some(m) => {
+                            let size = m.size();
+                            if best_size == 0 || size < best_size {
+                                best_size = size;
+                                best = magic;
+                            }
+                        },
+                        None => (),
+                    }
+                }
+
+                println!("{}[{}]: {}", c, best_size, best);
+                total_size += best_size;
+            }
+
+            println!("Total size: {} bytes", total_size * 8);
+
+            Ok(())
         },
     }
 }

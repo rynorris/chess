@@ -3,6 +3,7 @@ pub mod board;
 pub mod fen;
 pub mod fmt;
 pub mod game;
+pub mod magic;
 pub mod moves;
 pub mod perft;
 pub mod pgn;

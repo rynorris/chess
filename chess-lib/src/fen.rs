@@ -1,5 +1,5 @@
-use crate::board::{Coords, empty_board};
-use crate::types::{Board, GameState, Colour, Coordinate, Piece, Pieces, SideState, Square};
+use crate::board::{empty_board};
+use crate::types::{GameState, Colour, Piece, Pieces, SideState, Square};
 
 pub const STARTING_POSITION: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
