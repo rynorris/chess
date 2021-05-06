@@ -46,10 +46,6 @@ struct Analyze {
 
 fn main() -> Result<(), io::Error> {
     let opts: Opts = Opts::parse();
-    let stdout = io::stdout().into_raw_mode()?;
-    let mut stdin = termion::async_stdin().keys();
-    let backend = TermionBackend::new(stdout);
-    let mut terminal = Terminal::new(backend)?;
     match opts.subcmd {
         SubCommand::Divide(div) => {
             let state = chess_lib::fen::load_fen(&div.fen);
@@ -69,6 +65,10 @@ fn main() -> Result<(), io::Error> {
             Ok(())
         },
         SubCommand::Analyze(cmd) => {
+            let stdout = io::stdout().into_raw_mode()?;
+            let mut stdin = termion::async_stdin().keys();
+            let backend = TermionBackend::new(stdout);
+            let mut terminal = Terminal::new(backend)?;
             terminal.clear()?;
             let state = chess_lib::fen::load_fen(&cmd.fen);
             let position_board = state.board.clone();
