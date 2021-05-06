@@ -1,5 +1,5 @@
 use crate::board::{directions, is_in_bounds, rank, Coords, Direction, Line};
-use crate::types::{Board, Colour, Coordinate, GameState, Move, Piece, Square};
+use crate::types::{BitCoord, Board, Colour, Coordinate, GameState, IntoCoord, Move, Piece, Square};
 
 pub fn legal_moves(state: &GameState) -> Vec<Move> {
     let colour = state.active_colour;
@@ -9,7 +9,7 @@ pub fn legal_moves(state: &GameState) -> Vec<Move> {
         Colour::Black => &state.black,
     };
 
-    let king_coord = side.king_coord;
+    let king_coord = BitCoord::from(Into::<u64>::into(side.pieces.king)).into_coord();
 
     // Calculate restrictions on allowed moves based on checks and pins.
     let attacks = attacks_on_square(&state.board, king_coord, colour);
@@ -120,7 +120,7 @@ pub fn legal_moves(state: &GameState) -> Vec<Move> {
                             new_board[tgt as usize] = new_board[src as usize];
                             new_board[src as usize] = Square::Empty;
                             new_board[taken_coord as usize] = Square::Empty;
-                            if !square_under_attack(&new_board, side.king_coord, colour) {
+                            if !square_under_attack(&new_board, king_coord, colour) {
                                 moves.push(m);
                             }
                         } else {

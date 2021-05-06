@@ -1,6 +1,6 @@
 use crate::board::{coord, directions, file, rank};
 use crate::moves::square_under_attack;
-use crate::types::{Colour, Coordinate, GameState, Move, Piece, Square};
+use crate::types::{BitCoord, Colour, Coordinate, GameState, IntoCoord, Move, Piece, Square};
 
 impl GameState {
     pub fn make_move(&mut self, mv: Move) {
@@ -47,10 +47,11 @@ impl GameState {
     }
 
     pub fn is_in_check(&self) -> bool {
-        let king = match self.active_colour {
-            Colour::White => self.white.king_coord,
-            Colour::Black => self.black.king_coord,
+        let side = match self.active_colour {
+            Colour::White => &self.white,
+            Colour::Black => &self.black,
         };
+        let king = BitCoord::from(Into::<u64>::into(side.pieces.king)).into_coord();
 
         square_under_attack(&self.board, king, self.active_colour)
     }
@@ -105,10 +106,6 @@ impl GameState {
             let taken_coord = tgt.wrapping_add(if colour == Colour::White { directions::DOWN } else { directions::UP });
             self.board[taken_coord as usize] = Square::Empty;
             other_side.pieces.clear_square(taken_coord.into());
-        }
-
-        if active_side.king_coord == src {
-            active_side.king_coord = tgt;
         }
 
         if src == initial_king {

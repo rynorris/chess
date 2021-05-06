@@ -42,14 +42,12 @@ pub fn load_fen(fen: &str) -> GameState {
 
     // Initialize side states from board.
     let mut white = SideState{
-        king_coord: expect_king(&board, Colour::White),
         pieces: Pieces::empty(),
         can_castle_kingside: false,
         can_castle_queenside: false,
     };
 
     let mut black = SideState{
-        king_coord: expect_king(&board, Colour::Black),
         pieces: Pieces::empty(),
         can_castle_kingside: false,
         can_castle_queenside: false,
@@ -93,19 +91,6 @@ pub fn load_fen(fen: &str) -> GameState {
     }
 }
 
-fn expect_king(board: &Board, colour: Colour) -> Coordinate {
-    let king_coords: Vec<Coordinate> = Coords::new().filter(|c| match board[*c as usize] {
-        Square::Occupied(col, Piece::King) => col == colour,
-        _ => false,
-    }).collect();
-
-    if king_coords.len() == 1 {
-        *king_coords.iter().next().unwrap()
-    } else {
-        panic!("Didn't find single king");
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use crate::fen::*;
@@ -146,9 +131,6 @@ mod tests {
         assert_eq!(state.board[0x50], Square::Occupied(Colour::White, Piece::Bishop));
         assert_eq!(state.board[0x60], Square::Occupied(Colour::White, Piece::Knight));
         assert_eq!(state.board[0x70], Square::Occupied(Colour::White, Piece::Rook));
-
-        assert_eq!(state.white.king_coord, 0x40);
-        assert_eq!(state.black.king_coord, 0x47);
 
         assert_eq!(state.white.can_castle_kingside, true);
         assert_eq!(state.white.can_castle_queenside, true);

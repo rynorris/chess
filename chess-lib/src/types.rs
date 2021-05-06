@@ -11,7 +11,6 @@ pub struct GameState {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SideState {
-    pub king_coord: Coordinate,
     pub pieces: Pieces,
     pub can_castle_kingside: bool,
     pub can_castle_queenside: bool,
@@ -218,6 +217,12 @@ impl From<(u8, u8)> for BitCoord {
     }
 }
 
+impl From<u64> for BitCoord {
+    fn from(x: u64) -> BitCoord {
+        BitCoord(x)
+    }
+}
+
 impl From<Coordinate> for BitCoord {
     fn from(coord: Coordinate) -> BitCoord {
         (coord >> 4, coord & 0xF).into()
@@ -227,6 +232,15 @@ impl From<Coordinate> for BitCoord {
 impl IntoCoord for (u8, u8) {
     fn into_coord(self) -> Coordinate {
         let (file, rank) = self;
+        ((file & 0xF) << 4) + (rank & 0xF)
+    }
+}
+
+impl IntoCoord for BitCoord {
+    fn into_coord(self) -> Coordinate {
+        let zeros = self.0.trailing_zeros();
+        let file = (zeros % 8) as u8;
+        let rank = (zeros / 8) as u8;
         ((file & 0xF) << 4) + (rank & 0xF)
     }
 }
