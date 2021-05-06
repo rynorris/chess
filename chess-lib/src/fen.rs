@@ -1,5 +1,5 @@
 use crate::board::{Coords, empty_board};
-use crate::types::{Board, GameState, Colour, Coordinate, Piece, SideState, Square};
+use crate::types::{Board, GameState, Colour, Coordinate, Piece, Pieces, SideState, Square};
 
 pub const STARTING_POSITION: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
@@ -43,15 +43,26 @@ pub fn load_fen(fen: &str) -> GameState {
     // Initialize side states from board.
     let mut white = SideState{
         king_coord: expect_king(&board, Colour::White),
+        pieces: Pieces::empty(),
         can_castle_kingside: false,
         can_castle_queenside: false,
     };
 
     let mut black = SideState{
         king_coord: expect_king(&board, Colour::Black),
+        pieces: Pieces::empty(),
         can_castle_kingside: false,
         can_castle_queenside: false,
     };
+
+    // Populate bitboards.
+    for coord in 0..120u8 {
+        match board[coord as usize] {
+            Square::Occupied(Colour::White, piece) => white.pieces.put_piece(piece, coord.into()),
+            Square::Occupied(Colour::Black, piece) => black.pieces.put_piece(piece, coord.into()),
+            Square::Empty => (),
+        }
+    }
 
     let active_colour_field = fields.next().expect("FEN string didn't contain active colour");
     let active_colour = match active_colour_field {

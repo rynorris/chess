@@ -94,11 +94,17 @@ impl GameState {
 
         let is_capture = self.board[tgt as usize] != Square::Empty;
 
+        // Update board representations.
         self.board[tgt as usize] = self.board[src as usize];
         self.board[src as usize] = Square::Empty;
+
+        active_side.pieces.move_piece(src.into(), tgt.into());
+        other_side.pieces.clear_square(tgt.into());
+
         if piece == Piece::Pawn && self.en_passant.map(|ep| ep == tgt).unwrap_or(false) {
             let taken_coord = tgt.wrapping_add(if colour == Colour::White { directions::DOWN } else { directions::UP });
             self.board[taken_coord as usize] = Square::Empty;
+            other_side.pieces.clear_square(taken_coord.into());
         }
 
         if active_side.king_coord == src {
