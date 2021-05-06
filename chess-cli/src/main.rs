@@ -104,7 +104,7 @@ fn main() -> Result<(), io::Error> {
                     let barchart = BarChart::default()
                         .block(Block::default().title("Move Evaluations").borders(Borders::ALL))
                         .data(&chart_data)
-                        .bar_width(9)
+                        .bar_width(5)
                         .bar_style(Style::default().fg(Color::Yellow))
                         .value_style(Style::default().fg(Color::Black).bg(Color::Yellow));
 

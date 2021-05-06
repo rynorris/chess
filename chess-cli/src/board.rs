@@ -124,8 +124,8 @@ impl Widget for ChessBoard {
                             Colour::White => style::Color::White,
                             Colour::Black => style::Color::Blue,
                         };
-                        let x = (file as u16 * (square_width + 1)) + (square_width / 2);
-                        let y = ((7 - rank) as u16 * (square_height + 1)) + (square_height / 2);
+                        let x = (file as u16 * (square_width + 1)) + (square_width / 2) + 1;
+                        let y = ((7 - rank) as u16 * (square_height + 1)) + (square_height / 2) + 1;
                         buf.get_mut(board_x + x, board_y + y).set_symbol(symbol).set_fg(colour);
                     },
                     Square::Empty => (),

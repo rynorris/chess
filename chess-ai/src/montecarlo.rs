@@ -7,8 +7,8 @@ use std::rc::Rc;
 use rand::seq::SliceRandom;
 
 pub struct Node<Move> {
-    wins: u32,
-    simulations: u32,
+    wins: f32,
+    simulations: f32,
     children: HashMap<Move, Rc<RefCell<Node<Move>>>>,
     parent: Option<Rc<RefCell<Node<Move>>>>,
     mv: Option<Move>,
@@ -17,8 +17,8 @@ pub struct Node<Move> {
 impl <Move : Hash + Eq> Node<Move> {
     fn root() -> Node<Move> {
         Node{
-            wins: 0,
-            simulations: 0,
+            wins: 0.0,
+            simulations: 0.0,
             children: HashMap::new(),
             parent: None,
             mv: None,
@@ -27,8 +27,8 @@ impl <Move : Hash + Eq> Node<Move> {
 
     fn child_of(parent: Rc<RefCell<Node<Move>>>, mv: Move) -> Node<Move> {
         Node{
-            wins: 0,
-            simulations: 0,
+            wins: 0.0,
+            simulations: 0.0,
             children: HashMap::new(),
             parent: Some(parent),
             mv: Some(mv),
@@ -107,7 +107,7 @@ impl <M : Hash + Eq + Copy + Debug, G : Game<Move = M>> MCTS<M, G> {
         *best.unwrap()
     }
 
-    pub fn move_scores(&self) -> Vec<(M, u32, u32)> {
+    pub fn move_scores(&self) -> Vec<(M, f32, f32)> {
         self.root.borrow().children.iter().map(|(mv, nd)| (*mv, nd.borrow().wins, nd.borrow().simulations)).collect()
     }
 
@@ -162,10 +162,10 @@ impl <M : Hash + Eq + Copy + Debug, G : Game<Move = M>> MCTS<M, G> {
         best
     }
 
-    fn uct_formula(wins: u32, simulations: u32, parent_simulations: u32) -> f64 {
-        let exploitation = (wins as f64) / (simulations as f64);
-        let c = 2f64.sqrt();
-        let exploration = c * ((parent_simulations as f64).ln() / (simulations as f64)).sqrt();
+    fn uct_formula(wins: f32, simulations: f32, parent_simulations: f32) -> f32 {
+        let exploitation = wins / simulations;
+        let c = 2f32.sqrt();
+        let exploration = c * (parent_simulations.ln() / simulations).sqrt();
         exploitation + exploration
     }
 
@@ -196,9 +196,11 @@ impl <M : Hash + Eq + Copy + Debug, G : Game<Move = M>> MCTS<M, G> {
 
     fn back_propagate(node: Rc<RefCell<Node<M>>>, result: GameResult) {
         let mut nd = node.borrow_mut();
-        nd.simulations += 1;
+        nd.simulations += 1.0;
         if result == GameResult::Win {
-            nd.wins += 1;
+            nd.wins += 1.0;
+        } else if result == GameResult::Draw {
+            nd.wins += 0.5;
         }
 
         match nd.parent.clone() {
