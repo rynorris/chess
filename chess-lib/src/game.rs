@@ -13,6 +13,13 @@ impl GameState {
             Move::Promotion(src, tgt, pc) => {
                 self.move_piece(src, tgt);
                 self.board[tgt as usize] = Square::Occupied(self.active_colour, pc);
+
+                let active_side = match self.active_colour {
+                    Colour::White => &mut self.white,
+                    Colour::Black => &mut self.black,
+                };
+                active_side.pieces.clear_square(tgt.into());
+                active_side.pieces.put_piece(pc, tgt.into());
             },
             Move::Castle => {
                 match self.active_colour {

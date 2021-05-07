@@ -56,9 +56,10 @@ fn main() -> Result<(), io::Error> {
     match opts.subcmd {
         SubCommand::Divide(div) => {
             let state = chess_lib::fen::load_fen(&div.fen);
+            let mbb = chess_lib::magic::MagicBitBoards::default();
 
             let before = Instant::now();
-            let counts = chess_lib::perft::divide(&state, div.depth);
+            let counts = chess_lib::perft::divide(&state, div.depth, &mbb);
             let after = Instant::now();
 
             let mut lines: Vec<String> = counts.iter().map(|(k, v)| {
@@ -80,7 +81,8 @@ fn main() -> Result<(), io::Error> {
             let state = chess_lib::fen::load_fen(&cmd.fen);
             let position_board = state.board.clone();
 
-            let mut monte = chess_ai::montecarlo::MCTS::new(state);
+            let chess = chess_ai::chess::Chess::new(state);
+            let mut monte = chess_ai::montecarlo::MCTS::new(chess);
 
             loop {
                 for _ in 0..cmd.simulations {
@@ -132,9 +134,13 @@ fn main() -> Result<(), io::Error> {
             }
         },
         SubCommand::Magic(cmd) => {
-            let (generator, optimal): (fn (u64, chess_lib::types::BitCoord) -> Option<chess_lib::magic::Magic>, usize) = match cmd.piece.as_str() {
-                "rook" => (chess_lib::magic::Magic::generate_rook, 256),
-                "bishop" => (chess_lib::magic::Magic::generate_bishop, 64),
+            let (maskgen, movegen, target): (
+                fn (chess_lib::types::BitCoord) -> chess_lib::types::BitBoard,
+                fn (chess_lib::types::BitCoord, chess_lib::types::BitBoard) -> chess_lib::types::BitBoard,
+                usize,
+            ) = match cmd.piece.as_str() {
+                "rook" => (chess_lib::magic::rook_mask, chess_lib::magic::rook_moves, 2056),
+                "bishop" => (chess_lib::magic::bishop_mask, chess_lib::magic::bishop_moves, 128),
                 _ => panic!("Unknown piece: {}", cmd.piece),
             };
 
@@ -145,11 +151,14 @@ fn main() -> Result<(), io::Error> {
                 let mut best_size: usize = usize::MAX;
 
                 let mut iterations = 0;
-                while iterations < 100_000 && best_size > optimal {
+                let coord = chess_lib::types::BitCoord(1 << c);
+                let mask = maskgen(coord);
+                let moves = chess_lib::magic::generate_moves(coord, mask, movegen);
+
+                while iterations < 10_000 && best_size > target {
                     iterations += 1;
                     let magic = rand::random::<u64>();
-                    let coord = chess_lib::types::BitCoord(1 << c);
-                    match generator(magic, coord) {
+                    match chess_lib::magic::Magic::generate(magic, mask, &moves) {
                         Some(m) => {
                             let size = m.size();
                             if best_size == 0 || size < best_size {
@@ -161,7 +170,7 @@ fn main() -> Result<(), io::Error> {
                     }
                 }
 
-                println!("{}[{}]: {}", c, best_size, best);
+                println!("0x{:016x},  // {}[{}]", best, c, best_size);
                 total_size += best_size;
             }
 

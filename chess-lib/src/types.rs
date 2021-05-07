@@ -122,7 +122,7 @@ pub enum Square {
 // Only 64 will ever be filled.
 pub type Board = [Square; 120];
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub struct BitBoard(pub u64);
 
 impl <T : Into<u64>> std::ops::BitAnd<T> for BitBoard {
@@ -152,6 +152,23 @@ impl std::ops::Not for BitBoard {
 impl Into<u64> for BitBoard {
     fn into(self) -> u64 {
         self.0
+    }
+}
+
+impl std::fmt::Display for BitBoard {
+    fn fmt(&self, w: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        for c in 0..64 {
+            if c % 8 == 0 {
+                write!(w, "\n")?;
+            }
+
+            if self.0 & (1 << (63 - c)) == 0 {
+                write!(w, ".")?;
+            } else {
+                write!(w, "o")?;
+            }
+        }
+        Ok(())
     }
 }
 

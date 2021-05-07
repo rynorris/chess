@@ -1,7 +1,8 @@
 use crate::board::{directions, is_in_bounds, rank, Coords, Direction, Line};
-use crate::types::{BitCoord, Board, Colour, Coordinate, GameState, IntoCoord, Move, Piece, Square};
+use crate::magic::MagicBitBoards;
+use crate::types::{BitBoard, BitCoord, Board, Colour, Coordinate, GameState, IntoCoord, Move, Piece, Pieces, Square};
 
-pub fn legal_moves(state: &GameState) -> Vec<Move> {
+pub fn legal_moves(state: &GameState, mbb: &MagicBitBoards) -> Vec<Move> {
     let colour = state.active_colour;
 
     let side = match colour {
@@ -39,10 +40,17 @@ pub fn legal_moves(state: &GameState) -> Vec<Move> {
         _ => false,
     });
 
-    let moves_without_restrictions = piece_coords.flat_map(|coord| {
+    let old_moves = piece_coords.flat_map(|coord| {
         piece_movement(&state.board, coord, state.en_passant)
             .map(move |tgt| Move::Normal(coord, tgt))
     });
+
+    let occupancy = state.white.pieces.all() | state.black.pieces.all();
+    let magic_moves = (0..64)
+        .map(|x| BitCoord(1 << x))
+        .flat_map(|c| BitBoardMoves::new(c, magic_piece_movement(&side.pieces, occupancy, c, mbb)));
+
+    let moves_without_restrictions = old_moves.chain(magic_moves);
 
     // Move only allowed if it blocks all checks, or is king move.
     let moves_respecting_checks = moves_without_restrictions.filter(|m| {
@@ -437,21 +445,71 @@ fn piece_movement(board: &Board, coord: Coordinate, en_passant: Option<Coordinat
         Piece::King => {
             PieceMoves::King(LineMoves::new(board, coord, colour, directions::ALL.as_ref().into_iter(), 1))
         },
-        Piece::Queen => {
-            PieceMoves::Queen(LineMoves::new(board, coord, colour, directions::ALL.as_ref().into_iter(), 8))
-        },
-        Piece::Rook => {
-            PieceMoves::Rook(LineMoves::new(board, coord, colour, directions::STRAIGHTS.as_ref().into_iter(), 8))
-        },
-        Piece::Bishop => {
-            PieceMoves::Bishop(LineMoves::new(board, coord, colour, directions::DIAGONALS.as_ref().into_iter(), 8))
-        },
         Piece::Knight => {
             PieceMoves::Knight(LineMoves::new(board, coord, colour, directions::KNIGHT.as_ref().into_iter(), 1))
         },
         Piece::Pawn => {
             PieceMoves::Pawn(PawnMoves::new(&board, coord, colour, en_passant))
         },
+        _ => {
+            PieceMoves::Bishop(LineMoves::new(board, coord, colour, [].iter(), 0))
+        },
+    }
+}
+
+fn magic_piece_movement(active_pieces: &Pieces, occupancy: BitBoard, coord: BitCoord, mbb: &MagicBitBoards) -> BitBoard {
+    let piece = match active_pieces.get_piece(coord) {
+        Some(p) => p,
+        None => return BitBoard::EMPTY,
+    };
+
+    let moves = match piece {
+        Piece::Queen => {
+            mbb.rook(coord).lookup(occupancy) | mbb.bishop(coord).lookup(occupancy)
+        },
+        Piece::Rook => {
+            mbb.rook(coord).lookup(occupancy)
+        },
+        Piece::Bishop => {
+            mbb.bishop(coord).lookup(occupancy)
+        },
+        _ => BitBoard::EMPTY,
+    };
+
+    // Remove moves that capture our own pieces.
+    moves & (!active_pieces.all())
+}
+
+struct BitBoardMoves {
+    src: BitCoord,
+    bb: BitBoard,
+    c: BitCoord,
+}
+
+impl BitBoardMoves {
+    fn new(src: BitCoord, bb: BitBoard) -> BitBoardMoves {
+        BitBoardMoves{ src, bb, c: BitCoord(1) }
+    }
+}
+
+impl Iterator for BitBoardMoves {
+    type Item = Move;
+
+    fn next(&mut self) -> Option<Move> {
+        let mut mv: Option<Move> = None;
+
+        while self.c.0 != 0 {
+            if self.bb & self.c != BitBoard::EMPTY {
+                mv = Some(Move::Normal(self.src.into_coord(), self.c.into_coord()));
+            }
+            self.c = self.c << 1;
+
+            if mv.is_some() {
+                break;
+            }
+        }
+
+        mv
     }
 }
 

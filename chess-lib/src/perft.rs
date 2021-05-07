@@ -1,34 +1,35 @@
 use std::collections::HashMap;
 use crate::fmt::{format_move};
+use crate::magic::MagicBitBoards;
 use crate::moves::legal_moves;
 use crate::types::{GameState};
 
-pub fn perft(state: &GameState, depth: u8) -> u64 {
+pub fn perft(state: &GameState, depth: u8, mbb: &MagicBitBoards) -> u64 {
     if depth == 0 {
         return 1;
     } 
 
-    let moves = legal_moves(state);
+    let moves = legal_moves(state, &mbb);
 
     return moves.iter().map(|m| {
         let mut new_state = state.clone();
         new_state.make_move(*m);
-        perft(&new_state, depth - 1)
+        perft(&new_state, depth - 1, mbb)
     }).sum();
 }
 
-pub fn divide(state: &GameState, depth: u8) -> HashMap<String, u64> {
+pub fn divide(state: &GameState, depth: u8, mbb: &MagicBitBoards) -> HashMap<String, u64> {
     if depth < 1 {
         panic!("Divide requires depth at least 1");
     }
 
-    let moves = legal_moves(state);
+    let moves = legal_moves(state, &mbb);
 
     let results: Vec<(String, u64)> = moves.iter().map(|m| {
         let move_str = format_move(*m);
         let mut state_2 = state.clone();
         state_2.make_move(*m);
-        (move_str, perft(&state_2, depth - 1))
+        (move_str, perft(&state_2, depth - 1, mbb))
     }).collect();
     
     let mut counts: HashMap<String, u64> = HashMap::new();
@@ -42,6 +43,7 @@ pub fn divide(state: &GameState, depth: u8) -> HashMap<String, u64> {
 #[cfg(test)]
 mod tests {
     use crate::fen::{load_fen, STARTING_POSITION};
+    use crate::magic::MagicBitBoards;
     use crate::perft::{perft};
 
     macro_rules! perft_test {
@@ -49,7 +51,8 @@ mod tests {
             #[test]
             fn $name() {
                 let state = load_fen($position);
-                assert_eq!(perft(&state, $depth), $count);
+                let mbb = MagicBitBoards::default();
+                assert_eq!(perft(&state, $depth, &mbb), $count);
             }
         };
     }

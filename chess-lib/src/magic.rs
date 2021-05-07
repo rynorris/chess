@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use crate::types::{BitBoard, BitCoord};
 
 pub struct MagicBitBoards {
@@ -15,8 +16,18 @@ impl MagicBitBoards {
         let mut bishops: Vec<Magic> = Vec::with_capacity(64);
         for c in 0..64 {
             let coord = BitCoord(1 << c);
-            rooks.push(Magic::generate_rook(rook_magic[coord.0.trailing_zeros() as usize], BitCoord(1 << c)).unwrap());
-            bishops.push(Magic::generate_bishop(bishop_magic[coord.0.trailing_zeros() as usize], BitCoord(1 << c)).unwrap());
+            let rook_moves_map = generate_moves(coord, rook_mask(coord), rook_moves);
+            let bishop_moves_map = generate_moves(coord, bishop_mask(coord), bishop_moves);
+            rooks.push(Magic::generate(
+                    rook_magic[coord.0.trailing_zeros() as usize],
+                    rook_mask(coord),
+                    &rook_moves_map,
+            ).unwrap());
+            bishops.push(Magic::generate(
+                    bishop_magic[coord.0.trailing_zeros() as usize],
+                    bishop_mask(coord),
+                    &bishop_moves_map,
+            ).unwrap());
         }
 
         MagicBitBoards{rooks, bishops}
@@ -38,8 +49,6 @@ pub struct Magic {
     shift: u32,
 }
 
-const INNER_MASK: u64 = 0x00_7e_7e_7e_7e_7e_7e_00;
-
 impl Magic {
     pub fn dummy() -> Magic {
         Magic{
@@ -58,26 +67,16 @@ impl Magic {
         return self.table[Magic::index(bb, self.mask, self.magic, self.shift)];
     }
 
-    pub fn generate_rook(magic: u64, coord: BitCoord) -> Option<Magic> {
-        Self::generate(magic, coord, rook_mask, rook_moves)
-    }
-
-    pub fn generate_bishop(magic: u64, coord: BitCoord) -> Option<Magic> {
-        Self::generate(magic, coord, bishop_mask, bishop_moves)
-    }
-
     pub fn generate(
         magic: u64,
-        coord: BitCoord,
-        maskgen: fn (BitCoord) -> BitBoard,
-        movegen: fn (BitCoord, BitBoard) -> BitBoard,
+        mask: BitBoard,
+        all_moves: &HashMap<BitBoard, BitBoard>,
     ) -> Option<Magic> {
         // 2^10 = 1024 possible masked occupancies.
         // Perfect hashing would fit in 256 cells.
-        let mask = maskgen(coord);
         let occupancies = boards_for_mask(mask);
 
-        for size in 8..=12 {
+        for size in 8..=16 {
             let shift = 64 - size;
             let mut table = vec![BitBoard::EMPTY; 1 << size];
             let mut filled = vec![false; 1 << size];
@@ -85,14 +84,14 @@ impl Magic {
             let mut success = true;
             for o in occupancies.iter() {
                 let index = Magic::index(*o, mask, magic, shift);
-                let moves = movegen(coord, *o);
+                let moves = all_moves.get(o).expect("Missing some moves");
                 if !filled[index] {
-                    table[index] = moves;
+                    table[index] = *moves;
                     filled[index] = true;
                     continue;
                 }
 
-                if table[index] != moves {
+                if table[index] != *moves {
                     success = false;
                     break;
                 }
@@ -111,14 +110,26 @@ impl Magic {
     }
 }
 
-fn rook_mask(coord: BitCoord) -> BitBoard {
-    line_mask(coord, 1) | line_mask(coord, 64 - 1) | line_mask(coord, 8) | line_mask(coord, 64 - 8)
+pub fn generate_moves(
+    coord: BitCoord, 
+    mask: BitBoard,
+    movegen: fn (BitCoord, BitBoard) -> BitBoard,
+) -> HashMap<BitBoard, BitBoard> {
+    let mut moves: HashMap<BitBoard, BitBoard> = HashMap::new();
+    for o in boards_for_mask(mask) {
+        moves.insert(o, movegen(coord, o));
+    }
+    moves
 }
 
-fn rook_moves(start: BitCoord, occupancy: BitBoard) -> BitBoard {
+pub fn rook_mask(coord: BitCoord) -> BitBoard {
+    line_mask(coord, 1) | line_mask(coord, -1) | line_mask(coord, 8) | line_mask(coord, -8)
+}
+
+pub fn rook_moves(start: BitCoord, occupancy: BitBoard) -> BitBoard {
     let mut moves = BitBoard::EMPTY;
 
-    for dir in [1, 8, 64 - 1, 64 - 8].iter() {
+    for dir in [1, 8, -1, -8].iter() {
         for coord in Line::new(start, *dir) {
             moves = moves | coord;
             if occupancy & coord != BitBoard::EMPTY {
@@ -130,14 +141,14 @@ fn rook_moves(start: BitCoord, occupancy: BitBoard) -> BitBoard {
     moves
 }
 
-fn bishop_mask(coord: BitCoord) -> BitBoard {
-    line_mask(coord, 9) | line_mask(coord, 64 - 9) | line_mask(coord, 7) | line_mask(coord, 64 - 7)
+pub fn bishop_mask(coord: BitCoord) -> BitBoard {
+    line_mask(coord, 9) | line_mask(coord, -9) | line_mask(coord, 7) | line_mask(coord, -7)
 }
 
-fn bishop_moves(start: BitCoord, occupancy: BitBoard) -> BitBoard {
+pub fn bishop_moves(start: BitCoord, occupancy: BitBoard) -> BitBoard {
     let mut moves = BitBoard::EMPTY;
 
-    for dir in [7, 9, 64 - 7, 64 - 9].iter() {
+    for dir in [7, 9, -7, -9].iter() {
         for coord in Line::new(start, *dir) {
             moves = moves | coord;
             if occupancy & coord != BitBoard::EMPTY {
@@ -151,11 +162,11 @@ fn bishop_moves(start: BitCoord, occupancy: BitBoard) -> BitBoard {
 
 struct Line {
     coord: u64,
-    shift: u32,
+    shift: i32,
 }
 
 impl Line {
-    fn new(start: BitCoord, shift: u32) -> Line {
+    fn new(start: BitCoord, shift: i32) -> Line {
         Line{
             coord: start.0,
             shift,
@@ -167,28 +178,48 @@ impl Iterator for Line {
     type Item = BitCoord;
 
     fn next(&mut self) -> Option<Self::Item> {
+        let prev = self.coord;
+
+        if self.shift > 0 {
+            self.coord <<= self.shift as u32;
+        } else {
+            self.coord >>= (-self.shift) as u32;
+        }
+
+        // Check for board wrapping.
+        // Maximum possible taxicab distance is 3 (for knight move).
+        let dx = diff(prev.trailing_zeros() % 8, self.coord.trailing_zeros() % 8);
+        let dy = diff(prev.trailing_zeros() / 8, self.coord.trailing_zeros() / 8);
+        if dx + dy > 3 {
+            return None;
+        }
+
         if self.coord == 0 {
-            return None
+            None
+        } else {
+            Some(BitCoord(self.coord))
         }
-
-        self.coord = self.coord.rotate_left(self.shift);
-        let nxt = Some(BitCoord(self.coord));
-        if self.coord & INNER_MASK == 0 {
-            self.coord = 0;
-        }
-
-        nxt
     }
 }
 
-fn line_mask(start: BitCoord, shift: u32) -> BitBoard {
+fn diff(x: u32, y: u32) -> u32 {
+    if x > y {
+        x - y
+    } else {
+        y - x
+    }
+}
+
+fn line_mask(start: BitCoord, shift: i32) -> BitBoard {
     let mut mask = BitBoard::EMPTY;
+    let mut last_coord = BitCoord(0);
 
     for coord in Line::new(start, shift) {
         mask = mask | coord;
+        last_coord = coord;
     }
 
-    mask & INNER_MASK
+    mask & (!last_coord)
 }
 
 fn boards_for_mask(mask: BitBoard) -> Vec<BitBoard> {
@@ -211,137 +242,137 @@ fn boards_for_mask(mask: BitBoard) -> Vec<BitBoard> {
 
 mod generated {
     pub const ROOK_MAGIC: [u64; 64] = [
-        7318730101365882109,
-        13918138860097688298,
-        6379511917137240160,
-        584281744042479507,
-        11880579848240401801,
-        17798197070762577132,
-        12772047277938945535,
-        9243312960803485918,
-        17910046109851947197,
-        9973819516298166262,
-        1152650646648270620,
-        14840627584551836772,
-        4868154247761511827,
-        1972335820218734390,
-        1778447406079143747,
-        7032058808221398894,
-        11170074723843556258,
-        8903634066881534747,
-        3390273346794418842,
-        6636205248622942332,
-        8802335086591514653,
-        7732074800356010537,
-        450170845675430662,
-        6144194463625738060,
-        15888356658330194585,
-        9059145848138251668,
-        4844433483735269350,
-        14946840612690504417,
-        2131333900901757982,
-        671095440335332289,
-        9987902867935040492,
-        12610880065274861585,
-        15928797870679920171,
-        1283803048829032067,
-        13164050679477890988,
-        9835329599541273977,
-        15037127446014982656,
-        16220026149555165702,
-        17165476585373934831,
-        12265476125666619434,
-        13666028341609107392,
-        16770166924131862512,
-        3685174461418508320,
-        1946238055934477918,
-        10461804219591862510,
-        6719379877049348101,
-        11661599357987567151,
-        16039539961344729171,
-        8055227416381383454,
-        8946141372254262784,
-        7370412134493463916,
-        9599474656535008030,
-        8649207445176075074,
-        2699080145021749930,
-        16929401376011328526,
-        6190393392494847991,
-        11948877292500961264,
-        16351966850438144150,
-        16605046368466837003,
-        9356260781071982750,
-        6822520162779630907,
-        14263076139933141526,
-        12306394020589150851,
-        14409863329953669300,
+        0xfc19fe6fec2cf537,  // 0[16384]
+        0xeacaa62d652357e7,  // 1[8192]
+        0x8f979281a0211aea,  // 2[16384]
+        0x671c700f8e25251b,  // 3[8192]
+        0x430cb929d5f8c5cf,  // 4[16384]
+        0x79400708fb3f7a67,  // 5[16384]
+        0xcca97deec7dca69e,  // 6[8192]
+        0x8d12c734ebcecec2,  // 7[16384]
+        0xe4c8de4524b57290,  // 8[8192]
+        0xb3a5de29ce7d195d,  // 9[4096]
+        0x8b3e021c9f262b0e,  // 10[4096]
+        0xd91d05ee6b0fa113,  // 11[4096]
+        0x67d236a3c6a1e2a3,  // 12[4096]
+        0x1c53206a99114ed5,  // 13[4096]
+        0x1e51b2f9cc05b305,  // 14[2048]
+        0x3fad2a6578db0810,  // 15[8192]
+        0xa38e5071f1fb3719,  // 16[8192]
+        0xeb9e6fef30c89b2d,  // 17[4096]
+        0x1697e7f7d11da04d,  // 18[4096]
+        0x7611ee11997a354e,  // 19[4096]
+        0xa2b2296bc0b35149,  // 20[4096]
+        0x4cd92b03e0424e87,  // 21[4096]
+        0xc3991d59fe30161c,  // 22[4096]
+        0xd88c26fe9c2c6516,  // 23[4096]
+        0xd20b418466a3c471,  // 24[8192]
+        0x505f816e6743d000,  // 25[4096]
+        0x07c72b1f75f95f2f,  // 26[4096]
+        0x5771db16d2d3bb4f,  // 27[4096]
+        0x38b5f99b58e6515a,  // 28[4096]
+        0x8a72dca523400e31,  // 29[4096]
+        0xc3f848612b835628,  // 30[4096]
+        0xadf924cff49d5f5c,  // 31[4096]
+        0xaaa77ff76522e098,  // 32[8192]
+        0xc4379ce185f9a4a6,  // 33[4096]
+        0x346951ee8ca0d39b,  // 34[4096]
+        0x61435d185ee10616,  // 35[4096]
+        0x8aa360af7c27f512,  // 36[4096]
+        0x77609c69819bd8eb,  // 37[4096]
+        0x18efee8681af030e,  // 38[4096]
+        0x1386aeda72da63b5,  // 39[4096]
+        0xeade55a59f364336,  // 40[4096]
+        0x899288f8694e97eb,  // 41[4096]
+        0x0dcb50c586597110,  // 42[4096]
+        0x90de7c97919b4943,  // 43[4096]
+        0x35452ef808c0f1ee,  // 44[4096]
+        0x5e34044a59f577d2,  // 45[4096]
+        0xdfa39102fe335b9b,  // 46[2048]
+        0x5f8486f8cdd68837,  // 47[4096]
+        0x2825a8f0a44bb2c2,  // 48[8192]
+        0xab2e8a092fc1f15c,  // 49[2048]
+        0xfc6740cb73e47507,  // 50[4096]
+        0x5fb9bd36f86e79bd,  // 51[2048]
+        0xf88bb4ef15e277f0,  // 52[4096]
+        0x2127ff4bc8415110,  // 53[2048]
+        0xb4a7965983831f3c,  // 54[2048]
+        0xf06468ad013996c0,  // 55[4096]
+        0xa2f999725d5ebf7a,  // 56[8192]
+        0x64ad9ba3331931ce,  // 57[4096]
+        0xa55b0586001c71be,  // 58[4096]
+        0x70890bc3c1d892ce,  // 59[4096]
+        0x35838af8effa74f2,  // 60[8192]
+        0x514886983a434ff3,  // 61[8192]
+        0x6e6c44b573523dcc,  // 62[4096]
+        0x037f859713fc9e2a,  // 63[8192]
     ];
 
     pub const BISHOP_MAGIC: [u64; 64] = [
-        7151652312763427893,
-        13194642546697694465,
-        3833508239341365118,
-        9885562817151386972,
-        9508817358002745117,
-        11183632502371359776,
-        15142031059668215335,
-        13968335907739081718,
-        11988344797868136150,
-        5214163953010587096,
-        6377142112234490225,
-        16755594444978376714,
-        4848653307751312232,
-        10478702003886345970,
-        13508685031193448700,
-        5207038863346759135,
-        12779767202687574107,
-        9512062205417579917,
-        7112032746381020256,
-        6885438255439953972,
-        2170611184150955259,
-        4822792460493774831,
-        4471899643903503153,
-        12997112633536717752,
-        18077497145854903955,
-        5247931104766456056,
-        1694348443751498204,
-        9337014659516865789,
-        9499126976041960450,
-        15287810882428362738,
-        3046165162433805900,
-        15071778646520856232,
-        6483640912386336550,
-        1001012655074942660,
-        4555950479159770914,
-        17625598162253448301,
-        7320906560376894470,
-        15365110956074090659,
-        10126895450170147095,
-        3154981859374535098,
-        8746970699480683512,
-        15852289914160663875,
-        13063910906638725380,
-        12400351887215294376,
-        12650356564085134615,
-        2437975998214627067,
-        736081946407015041,
-        16342253143245812172,
-        9677898851406001201,
-        12258150507668859047,
-        9265883073088409987,
-        5894571724841352974,
-        11597166303844373211,
-        8613296875433344844,
-        8298246179503732561,
-        8908073261140267094,
-        7066802352621490035,
-        8091333618441291437,
-        11730155112728241686,
-        8957394586775416599,
-        11172342059769289420,
-        14019179725634323730,
-        4310311938154446224,
-        8595409343331003240,
+        0x2b37884ab6607661,  // 0[256]
+        0xf2cd889ec6a9c81e,  // 1[256]
+        0xabee7df5cb3794c2,  // 2[256]
+        0xf9878d4b4658fc3d,  // 3[256]
+        0x1c6ae81d1e1dba94,  // 4[256]
+        0x53e7464af1763b00,  // 5[256]
+        0x36ce5b74d02f55f8,  // 6[256]
+        0xde1b9fbdb734217b,  // 7[256]
+        0x0d32b4a42ce5d95d,  // 8[256]
+        0xad03884b003e73b2,  // 9[256]
+        0xe163799d724b7108,  // 10[256]
+        0x7e2316b38260826b,  // 11[256]
+        0x7e0168bee116276b,  // 12[256]
+        0x898ea1a6f5ef1c26,  // 13[256]
+        0x0e40ee533af10702,  // 14[256]
+        0xffd5b2405e084c3c,  // 15[256]
+        0x90029c75a3c9936a,  // 16[256]
+        0x390c41d646750ff8,  // 17[256]
+        0xf64cfec68c44afb1,  // 18[256]
+        0xaef8045cf83ec705,  // 19[256]
+        0x0f0baa520d926f53,  // 20[512]
+        0x96a6ffa7fbeb0b5c,  // 21[256]
+        0xaa0fbf0b6559a284,  // 22[256]
+        0xc19ba18c3b136e8e,  // 23[256]
+        0x849678e0857b8678,  // 24[256]
+        0xe92851b524c3e5ef,  // 25[256]
+        0x3295a5aff4fc17f8,  // 26[256]
+        0x61540c70bc720b77,  // 27[4096]
+        0xf7f213fff0ca213c,  // 28[2048]
+        0xd74a79f63fac428e,  // 29[256]
+        0x9f445422f60d14f6,  // 30[256]
+        0x7625be0598a36418,  // 31[256]
+        0x80f8604a44fb3cc6,  // 32[256]
+        0xfb2165468c7a2cd2,  // 33[256]
+        0x7ef3aeadfb5bfa12,  // 34[256]
+        0xef6f54cd3b3b5288,  // 35[2048]
+        0xb8509ef6174b0abd,  // 36[4096]
+        0xfcd9217b22a84107,  // 37[256]
+        0x2f4fd5406390fa74,  // 38[256]
+        0x5f3d0112dadbbe30,  // 39[256]
+        0x571f504b69b5cb85,  // 40[256]
+        0x9e61752b04a1734c,  // 41[256]
+        0x473e4ce818e6ece1,  // 42[256]
+        0xa58c2367f762fb27,  // 43[256]
+        0xaab79cfb1cad195e,  // 44[256]
+        0xc9e3898417ab70a9,  // 45[256]
+        0x32b4e5582b435c5b,  // 46[256]
+        0xea24b2f93e5f0089,  // 47[256]
+        0x8d9a150b5bcc8476,  // 48[256]
+        0xcbcd01d98964983c,  // 49[256]
+        0xfe60a7831a6e4146,  // 50[256]
+        0x6ab7f3b27d215dd6,  // 51[256]
+        0xed282405a3b8f28d,  // 52[256]
+        0xe79cc209fd70b7a3,  // 53[256]
+        0x55f0eb1fb2fa323e,  // 54[256]
+        0xed3e4e85a0b0888b,  // 55[256]
+        0x949810abb19c47fc,  // 56[256]
+        0x6487dcba652389ba,  // 57[256]
+        0x1b9780785f4f714a,  // 58[256]
+        0x11d0a56b4cbaa168,  // 59[256]
+        0xa424afb235fc83c4,  // 60[256]
+        0xd1769edf01cf0094,  // 61[256]
+        0x5029a8a9e99cbe54,  // 62[256]
+        0x7fc97500c80410b4,  // 63[256]
     ];
 }
 
@@ -381,27 +412,32 @@ mod tests {
 
     #[test]
     fn test_generate_rook() {
-        let coord = BitCoord(0x00_40_00_00_00_00_00_00);
-
-        let magic: Magic = {
-            let mut mm: Option<Magic> = None;
-            while mm.is_none() {
-                match Magic::generate_rook(rand::random::<u64>(), coord) {
-                    Some(m) => {
-                        mm = Some(m);
-                    },
-                    None => continue,
+        let mut rng = rand::thread_rng();
+        // Test a few random configurations.
+        for _ in 0..100 {
+            let coord = BitCoord(1 << (rng.gen_range(0..64)));
+            let moves = generate_moves(coord, rook_mask(coord), rook_moves);
+            let magic: Magic = {
+                let mut mm: Option<Magic> = None;
+                while mm.is_none() {
+                    match Magic::generate(rand::random::<u64>(), rook_mask(coord), &moves) {
+                        Some(m) => {
+                            mm = Some(m);
+                        },
+                        None => continue,
+                    }
                 }
-            }
-            mm.unwrap()
-        };
-
-        // Test a few random boards.
-        for _ in 0..1000 {
+                mm.unwrap()
+            };
             let board = BitBoard(rand::random::<u64>());
             let actual_moves = rook_moves(coord, board);
             let magic_moves = magic.lookup(board);
-            assert_eq!(actual_moves, magic_moves);
+            if actual_moves != magic_moves {
+                println!("Occupancy: {}", board);
+                println!("Actual: {}", actual_moves);
+                println!("Magic: {}", magic_moves);
+                panic!("Test failed");
+            }
         }
     }
 
@@ -415,7 +451,12 @@ mod tests {
             let board = BitBoard(rng.gen::<u64>());
             let actual_moves = rook_moves(coord, board);
             let magic_moves = magic_bbs.rook(coord).lookup(board);
-            assert_eq!(actual_moves, magic_moves);
+
+            if actual_moves != magic_moves {
+                println!("Actual: {}", actual_moves);
+                println!("Magic: {}", magic_moves);
+                panic!("Test failed");
+            }
         }
     }
 
