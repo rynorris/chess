@@ -4,6 +4,9 @@ use crate::types::{BitBoard, BitCoord};
 pub struct MagicBitBoards {
     rooks: Vec<Magic>,
     bishops: Vec<Magic>,
+
+    kings: Vec<BitBoard>,
+    knights: Vec<BitBoard>,
 }
 
 impl MagicBitBoards {
@@ -14,23 +17,30 @@ impl MagicBitBoards {
     pub fn generate(rook_magic: [u64; 64], bishop_magic: [u64; 64]) -> MagicBitBoards {
         let mut rooks: Vec<Magic> = Vec::with_capacity(64);
         let mut bishops: Vec<Magic> = Vec::with_capacity(64);
+        let mut kings: Vec<BitBoard> = Vec::with_capacity(64);
+        let mut knights: Vec<BitBoard> = Vec::with_capacity(64);
         for c in 0..64 {
             let coord = BitCoord(1 << c);
             let rook_moves_map = generate_moves(coord, rook_mask(coord), rook_moves);
             let bishop_moves_map = generate_moves(coord, bishop_mask(coord), bishop_moves);
+
             rooks.push(Magic::generate(
                     rook_magic[coord.0.trailing_zeros() as usize],
                     rook_mask(coord),
                     &rook_moves_map,
             ).unwrap());
+
             bishops.push(Magic::generate(
                     bishop_magic[coord.0.trailing_zeros() as usize],
                     bishop_mask(coord),
                     &bishop_moves_map,
             ).unwrap());
+
+            kings.push(king_moves(coord));
+            knights.push(knight_moves(coord));
         }
 
-        MagicBitBoards{rooks, bishops}
+        MagicBitBoards{rooks, bishops, kings, knights}
     }
 
     pub fn rook(&self, coord: BitCoord) -> &Magic {
@@ -39,6 +49,14 @@ impl MagicBitBoards {
 
     pub fn bishop(&self, coord: BitCoord) -> &Magic {
         &self.bishops[coord.0.trailing_zeros() as usize]
+    }
+
+    pub fn king(&self, coord: BitCoord) -> BitBoard {
+        self.kings[coord.0.trailing_zeros() as usize]
+    }
+
+    pub fn knight(&self, coord: BitCoord) -> BitBoard {
+        self.knights[coord.0.trailing_zeros() as usize]
     }
 }
 
@@ -154,6 +172,36 @@ pub fn bishop_moves(start: BitCoord, occupancy: BitBoard) -> BitBoard {
             if occupancy & coord != BitBoard::EMPTY {
                 break;
             }
+        }
+    }
+
+    moves
+}
+
+pub fn king_moves(start: BitCoord) -> BitBoard {
+    let mut moves = BitBoard::EMPTY;
+
+    for dir in [1, -1, 8, -8, 9, -9, 7, -7].iter() {
+        match Line::new(start, *dir).next() {
+            Some(coord) => {
+                moves = moves | coord;
+            },
+            None => (),
+        }
+    }
+
+    moves
+}
+
+pub fn knight_moves(start: BitCoord) -> BitBoard {
+    let mut moves = BitBoard::EMPTY;
+
+    for dir in [17, -17, 15, -15, 10, -10, 6, -6].iter() {
+        match Line::new(start, *dir).next() {
+            Some(coord) => {
+                moves = moves | coord;
+            },
+            None => (),
         }
     }
 

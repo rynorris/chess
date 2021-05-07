@@ -445,12 +445,6 @@ fn piece_movement(board: &Board, coord: Coordinate, en_passant: Option<Coordinat
     };
 
     match piece {
-        Piece::King => {
-            PieceMoves::King(LineMoves::new(board, coord, colour, directions::ALL.as_ref().into_iter(), 1))
-        },
-        Piece::Knight => {
-            PieceMoves::Knight(LineMoves::new(board, coord, colour, directions::KNIGHT.as_ref().into_iter(), 1))
-        },
         Piece::Pawn => {
             PieceMoves::Pawn(PawnMoves::new(&board, coord, colour, en_passant))
         },
@@ -475,6 +469,12 @@ fn magic_piece_movement(active_pieces: &Pieces, occupancy: BitBoard, coord: BitC
         },
         Piece::Bishop => {
             mbb.bishop(coord).lookup(occupancy)
+        },
+        Piece::Knight => {
+            mbb.knight(coord)
+        },
+        Piece::King => {
+            mbb.king(coord)
         },
         _ => BitBoard::EMPTY,
     };
