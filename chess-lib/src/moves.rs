@@ -496,20 +496,18 @@ impl Iterator for BitBoardMoves {
     type Item = Move;
 
     fn next(&mut self) -> Option<Move> {
-        let mut mv: Option<Move> = None;
+        if self.bb == BitBoard::EMPTY {
+            None
+        } else {
+            let zeros = self.bb.0.trailing_zeros();
+            self.c = self.c << zeros;
+            self.bb = self.bb >> (zeros + 1);
 
-        while self.c.0 != 0 {
-            if self.bb & self.c != BitBoard::EMPTY {
-                mv = Some(Move::Normal(self.src.into_coord(), self.c.into_coord()));
-            }
-            self.c = self.c << 1;
+            let mv = Some(Move::Normal(self.src.into_coord(), self.c.into_coord()));
+            self.c = self.c << 1u32;
 
-            if mv.is_some() {
-                break;
-            }
+            mv
         }
-
-        mv
     }
 }
 
