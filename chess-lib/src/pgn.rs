@@ -2,6 +2,7 @@ use std::fmt;
 use std::fmt::Display;
 use crate::board::{file, rank};
 use crate::fmt::{format_file, format_rank, format_piece};
+use crate::magic::MagicBitBoards;
 use crate::types::{Coordinate, GameState, Move, Piece, Square};
 
 pub enum PGNMove {
@@ -22,11 +23,11 @@ pub struct PGNMoveData {
 }
 
 impl PGNMove {
-    pub fn from_internal(state: &GameState, mv: Move) -> PGNMove {
+    pub fn from_internal(state: &GameState, mv: Move, mbb: &MagicBitBoards) -> PGNMove {
         let mut new_state = state.clone();
         new_state.make_move(mv);
 
-        let is_check = new_state.is_in_check();
+        let is_check = new_state.is_in_check(mbb);
 
         match mv {
             Move::Normal(src, tgt) => {

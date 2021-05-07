@@ -38,7 +38,7 @@ impl Game for Chess {
     fn game_state(&self) -> GameState {
         let num_moves = self.legal_moves().len();
         if num_moves == 0 {
-            if self.state.is_in_check() {
+            if self.state.is_in_check(&self.mbb) {
                 // Checkmate.
                 GameState::Finished(GameResult::Loss)
             } else {

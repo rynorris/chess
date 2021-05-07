@@ -1,4 +1,5 @@
 use crate::board::{coord, directions, file, rank};
+use crate::magic::MagicBitBoards;
 use crate::moves::square_under_attack;
 use crate::types::{BitCoord, Colour, Coordinate, GameState, IntoCoord, Move, Piece, Square};
 
@@ -53,14 +54,15 @@ impl GameState {
         }
     }
 
-    pub fn is_in_check(&self) -> bool {
-        let side = match self.active_colour {
-            Colour::White => &self.white,
-            Colour::Black => &self.black,
+    pub fn is_in_check(&self, mbb: &MagicBitBoards) -> bool {
+        let occupancy = self.white.pieces.all() | self.black.pieces.all();
+        let (side, other_side) = match self.active_colour {
+            Colour::White => (&self.white, &self.black),
+            Colour::Black => (&self.black, &self.white),
         };
         let king = BitCoord::from(Into::<u64>::into(side.pieces.king)).into_coord();
 
-        square_under_attack(&self.board, king, self.active_colour)
+        square_under_attack(occupancy, &other_side.pieces, king, self.active_colour, mbb)
     }
 
     fn move_piece(&mut self, src: Coordinate, tgt: Coordinate) {
@@ -109,7 +111,8 @@ impl GameState {
         active_side.pieces.move_piece(src.into(), tgt.into());
         other_side.pieces.clear_square(tgt.into());
 
-        if piece == Piece::Pawn && self.en_passant.map(|ep| ep == tgt).unwrap_or(false) {
+        let tgt_bc: BitCoord = tgt.into();
+        if piece == Piece::Pawn && self.en_passant.map(|ep| ep == tgt_bc).unwrap_or(false) {
             let taken_coord = tgt.wrapping_add(if colour == Colour::White { directions::DOWN } else { directions::UP });
             self.board[taken_coord as usize] = Square::Empty;
             other_side.pieces.clear_square(taken_coord.into());
@@ -136,7 +139,7 @@ impl GameState {
         let src_rank = rank(src);
         let tgt_rank = rank(tgt);
         if piece == Piece::Pawn && (tgt_rank == src_rank + 2 || src_rank == tgt_rank + 2) {
-            self.en_passant = Some(coord(file(src), (src_rank + tgt_rank) / 2));
+            self.en_passant = Some((file(src), (src_rank + tgt_rank) / 2).into());
         } else {
             self.en_passant = None;
         }

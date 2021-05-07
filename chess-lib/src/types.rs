@@ -5,7 +5,7 @@ pub struct GameState {
     pub active_colour: Colour,
     pub white: SideState,
     pub black: SideState,
-    pub en_passant: Option<Coordinate>,
+    pub en_passant: Option<BitCoord>,
     pub fifty_move_clock: u8,
 }
 
@@ -104,6 +104,15 @@ impl Pieces {
 pub enum Colour {
     White,
     Black,
+}
+
+impl Colour {
+    pub fn other(c: Colour) -> Colour {
+        match c {
+            Colour::White => Colour::Black,
+            Colour::Black => Colour::White,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
@@ -290,7 +299,7 @@ impl Into<u64> for BitCoord {
 impl From<(u8, u8)> for BitCoord {
     fn from(file_and_rank: (u8, u8)) -> BitCoord {
         let (file, rank) = file_and_rank;
-        BitCoord(1 << (rank * 8 + file))
+        BitCoord(1 << (rank * 8 + 7 - file))
     }
 }
 
@@ -316,7 +325,7 @@ impl IntoCoord for (u8, u8) {
 impl IntoCoord for BitCoord {
     fn into_coord(self) -> Coordinate {
         let zeros = self.0.trailing_zeros();
-        let file = (zeros % 8) as u8;
+        let file = 7 - (zeros % 8) as u8;
         let rank = (zeros / 8) as u8;
         ((file & 0xF) << 4) + (rank & 0xF)
     }

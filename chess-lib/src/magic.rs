@@ -208,13 +208,13 @@ pub fn knight_moves(start: BitCoord) -> BitBoard {
     moves
 }
 
-struct Line {
+pub struct Line {
     coord: u64,
     shift: i32,
 }
 
 impl Line {
-    fn new(start: BitCoord, shift: i32) -> Line {
+    pub fn new(start: BitCoord, shift: i32) -> Line {
         Line{
             coord: start.0,
             shift,
