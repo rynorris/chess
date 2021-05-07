@@ -501,10 +501,11 @@ impl Iterator for BitBoardMoves {
         } else {
             let zeros = self.bb.0.trailing_zeros();
             self.c = self.c << zeros;
-            self.bb = self.bb >> (zeros + 1);
+            self.bb = self.bb >> zeros;
 
             let mv = Some(Move::Normal(self.src.into_coord(), self.c.into_coord()));
             self.c = self.c << 1u32;
+            self.bb = self.bb >> 1u32;
 
             mv
         }
@@ -677,29 +678,5 @@ mod tests {
         Given a Black Knight on "a1", a White Queen on "c2",
         the piece on "a1",
         can move to "b3", "c2"
-    ];
-
-    test_movement![ rook_unobstructed:
-        Given a White Rook on "d4",
-        the piece on "d4",
-        can move to "a4", "b4", "c4", "e4", "f4", "g4", "h4", "d1", "d2", "d3", "d5", "d6", "d7", "d8"
-    ];
-
-    test_movement![ rook_obstructed:
-        Given a White Rook on "d4", a White Queen on "d2", a Black Queen on "f4",
-        the piece on "d4",
-        can move to "a4", "b4", "c4", "e4", "f4", "d3", "d5", "d6", "d7", "d8"
-    ];
-
-    test_movement![ bishop_unobstructed:
-        Given a Black Bishop on "d4",
-        the piece on "d4",
-        can move to "a1", "b2", "c3", "e5", "f6", "g7", "h8", "a7", "b6", "c5", "e3", "f2", "g1"
-    ];
-
-    test_movement![ bishop_obstructed:
-        Given a Black Bishop on "d4", a Black Knight on "c3", a White Rook on "c5",
-        the piece on "d4",
-        can move to "e5", "f6", "g7", "h8", "c5", "e3", "f2", "g1"
     ];
 }

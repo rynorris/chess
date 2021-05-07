@@ -149,11 +149,12 @@ impl std::ops::Not for BitBoard {
     }
 }
 
-impl <T : Into<u32>> std::ops::Shr<T> for BitBoard {
+impl std::ops::Shr<u32> for BitBoard {
     type Output = BitBoard;
 
-    fn shr(self, rhs: T) -> Self::Output {
-        BitBoard(self.0 >> rhs.into())
+    fn shr(self, rhs: u32) -> Self::Output {
+        let Self(lhs) = self;
+        Self(lhs >> rhs)
     }
 }
 
