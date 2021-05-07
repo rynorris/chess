@@ -265,11 +265,19 @@ impl std::ops::Not for BitCoord {
     }
 }
 
-impl <T : Into<u32>> std::ops::Shl<T> for BitCoord {
+impl std::ops::Shl<u32> for BitCoord {
     type Output = BitCoord;
 
-    fn shl(self, rhs: T) -> Self::Output {
-        BitCoord(self.0 << rhs.into())
+    fn shl(self, rhs: u32) -> Self::Output {
+        BitCoord(self.0 << rhs)
+    }
+}
+
+impl std::ops::Shr<u32> for BitCoord {
+    type Output = BitCoord;
+
+    fn shr(self, rhs: u32) -> Self::Output {
+        BitCoord(self.0 >> rhs)
     }
 }
 

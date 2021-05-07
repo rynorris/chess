@@ -5,9 +5,9 @@ use crate::types::{BitBoard, BitCoord, Board, Colour, Coordinate, GameState, Int
 pub fn legal_moves(state: &GameState, mbb: &MagicBitBoards) -> Vec<Move> {
     let colour = state.active_colour;
 
-    let side = match colour {
-        Colour::White => &state.white,
-        Colour::Black => &state.black,
+    let (side, other_side) = match colour {
+        Colour::White => (&state.white, &state.black),
+        Colour::Black => (&state.black, &state.white),
     };
 
     let king_coord = BitCoord::from(Into::<u64>::into(side.pieces.king)).into_coord();
@@ -45,11 +45,10 @@ pub fn legal_moves(state: &GameState, mbb: &MagicBitBoards) -> Vec<Move> {
             .map(move |tgt| Move::Normal(coord, tgt))
     });
 
-    let occupancy = state.white.pieces.all() | state.black.pieces.all();
     let magic_moves = side.pieces.all()
         .iter()
         .flat_map(|src| {
-            magic_piece_movement(&side.pieces, occupancy, src, mbb).iter()
+            magic_piece_movement(&side.pieces, &other_side.pieces, src, colour, mbb).iter()
                 .map(move |tgt| Move::Normal(src.into_coord(), tgt.into_coord()))
         });
 
@@ -378,36 +377,14 @@ impl <'a> Iterator for PawnMoves<'a> {
     type Item = Coordinate;
 
     fn next(&mut self) -> Option<Coordinate> {
-        let (fwd, d1, d2, home_rank) = match self.colour {
-            Colour::White => (directions::UP, directions::UP_LEFT, directions::UP_RIGHT, 0x01),
-            Colour::Black => (directions::DOWN, directions::DOWN_LEFT, directions::DOWN_RIGHT, 0x06),
+        let (d1, d2) = match self.colour {
+            Colour::White => (directions::UP_LEFT, directions::UP_RIGHT),
+            Colour::Black => (directions::DOWN_LEFT, directions::DOWN_RIGHT),
         };
 
         loop {
             match self.step {
                 0 => {
-                    // Single forward step.
-                    let tgt = self.coord.wrapping_add(fwd);
-                    if is_in_bounds(tgt) && self.board[tgt as usize] == Square::Empty {
-                        self.step += 1;
-                        return Some(tgt);
-                    } else {
-                        // If the square in front was blocked, don't bother checking the square 2
-                        // in front.
-                        self.step += 2;
-                    }
-                },
-                1 => {
-                    // Double forward step.
-                    // Note we skip this entirely if the square in front is blocked.
-                    // so no need to check for a piece in between.
-                    let tgt = self.coord.wrapping_add(fwd.wrapping_mul(2));
-                    self.step += 1;
-                    if rank(self.coord) == home_rank && is_in_bounds(tgt) && self.board[tgt as usize] == Square::Empty {
-                        return Some(tgt);
-                    }
-                },
-                2 => {
                     // Diagonal capture 1.
                     let tgt = self.coord.wrapping_add(d1);
                     self.step += 1;
@@ -415,7 +392,7 @@ impl <'a> Iterator for PawnMoves<'a> {
                         return Some(tgt);
                     }
                 },
-                3 => {
+                1 => {
                     // Diagonal capture 1.
                     let tgt = self.coord.wrapping_add(d2);
                     self.step += 1;
@@ -423,7 +400,7 @@ impl <'a> Iterator for PawnMoves<'a> {
                         return Some(tgt);
                     }
                 },
-                4 => return None,
+                2 => return None,
                 _ => panic!("Invalid iterator state: step={}", self.step),
             }
         }
@@ -446,7 +423,11 @@ fn piece_movement(board: &Board, coord: Coordinate, en_passant: Option<Coordinat
     }
 }
 
-fn magic_piece_movement(active_pieces: &Pieces, occupancy: BitBoard, coord: BitCoord, mbb: &MagicBitBoards) -> BitBoard {
+fn magic_piece_movement(active_pieces: &Pieces, other_pieces: &Pieces, coord: BitCoord, colour: Colour, mbb: &MagicBitBoards) -> BitBoard {
+    let active_occupancy = active_pieces.all();
+    let other_occupancy = other_pieces.all();
+    let occupancy = active_occupancy | other_occupancy;
+
     let piece = match active_pieces.get_piece(coord) {
         Some(p) => p,
         None => return BitBoard::EMPTY,
@@ -468,11 +449,38 @@ fn magic_piece_movement(active_pieces: &Pieces, occupancy: BitBoard, coord: BitC
         Piece::King => {
             mbb.king(coord)
         },
-        _ => BitBoard::EMPTY,
+        Piece::Pawn => {
+            magic_pawn_moves(active_occupancy, other_occupancy, coord, colour)
+        },
     };
 
     // Remove moves that capture our own pieces.
     moves & (!active_pieces.all())
+}
+
+fn magic_pawn_moves(active_occupancy: BitBoard, other_occupancy: BitBoard, coord: BitCoord, colour: Colour) -> BitBoard {
+    let occupancy = active_occupancy | other_occupancy;
+    match colour {
+        Colour::White => {
+            let home_row = BitBoard(0x00_00_00_00_00_00_FF_00);
+            let mut moves = BitBoard::EMPTY;
+            moves = moves | (coord << 8);
+            if (home_row & coord != BitBoard::EMPTY) && (moves & occupancy == BitBoard::EMPTY) {
+                moves = moves | (coord << 16);
+            }
+            moves & (!occupancy)
+        },
+        Colour::Black => {
+            let home_row = BitBoard(0x00_FF_00_00_00_00_00_00);
+            let mut moves = BitBoard::EMPTY;
+            moves = moves | (coord >> 8);
+            if (home_row & coord != BitBoard::EMPTY) && (moves & occupancy == BitBoard::EMPTY) {
+                moves = moves | (coord >> 16);
+            }
+            moves & (!occupancy)
+        },
+    }
+
 }
 
 fn moves_in_line<'a>(board: &'a Board, colour: Colour, line: Line, limit: usize) -> UntilBlocked<'a, std::iter::Take<Line>> {
@@ -531,79 +539,4 @@ impl <'a, I : Iterator<Item=Coordinate>> Iterator for UntilBlocked<'a, I> {
             },
         }
     }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::collections::HashSet;
-    use crate::board::{empty_board};
-    use crate::moves::*;
-    use crate::types::IntoCoord;
-
-    macro_rules! test_movement {
-        [ $name:ident: Given $( a $colour:ident $piece:ident on $coord:expr ),+, the piece on $src:expr, can move to $( $tgt:expr ),+ ] => {
-            #[test]
-            fn $name() {
-                let mut board = empty_board();
-                $(
-                    board[$coord.into_coord() as usize] = Square::Occupied(Colour::$colour, Piece::$piece);
-                )+
-                let mut expected: Vec<Coordinate> = Vec::new();
-                $(
-                    expected.push($tgt.into_coord());
-                )+
-                let moves = piece_movement(&board, $src.into_coord(), None);
-                let moves_set: HashSet<Coordinate> = moves.collect();
-                let expected_set: HashSet<Coordinate> = expected.into_iter().collect();
-                assert_eq!(moves_set, expected_set);
-            }
-        };
-        [ $name:ident: Given $( a $colour:ident $piece:ident on $coord:expr ),+, the piece on $src:expr, cannot move ] => {
-            #[test]
-            fn $name() {
-                let mut board = empty_board();
-                $(
-                    board[$coord.into_coord() as usize] = Square::Occupied(Colour::$colour, Piece::$piece);
-                )+
-                let moves = piece_movement(&board, $src.into_coord(), None);
-                assert_eq!(moves.collect::<Vec<Coordinate>>(), Vec::new());
-            }
-        };
-    }
-
-    test_movement![ white_pawn_moves_up:
-        Given a White Pawn on "d4",
-        the piece on "d4",
-        can move to "d5"
-    ];
-
-    test_movement![ black_pawn_moves_down:
-        Given a Black Pawn on "d4",
-        the piece on "d4",
-        can move to "d3"
-    ];
-
-    test_movement![ pawn_gets_blocked:
-        Given a White Pawn on "d4", a Black Pawn on "d5",
-        the piece on "d4",
-        cannot move
-    ];
-
-    test_movement![ pawn_can_capture_opposite_colour:
-        Given a White Pawn on "d4", a Black Knight on "e5",
-        the piece on "d4",
-        can move to "d5", "e5"
-    ];
-
-    test_movement![ pawn_cannot_capture_same_colour:
-        Given a White Pawn on "d4", a White Knight on "e5",
-        the piece on "d4",
-        can move to "d5"
-    ];
-
-    test_movement![ black_pawn_can_capture_downwards:
-        Given a Black Pawn on "d4", a White Knight on "c3",
-        the piece on "d4",
-        can move to "c3", "d3"
-    ];
 }
