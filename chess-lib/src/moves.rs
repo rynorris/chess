@@ -1,4 +1,3 @@
-use crate::board::{rank};
 use crate::magic::{Line, MagicBitBoards};
 use crate::types::{BitBoard, BitCoord, Colour, Coordinate, GameState, IntoCoord, Move, Piece, Pieces, Square};
 
@@ -61,7 +60,7 @@ pub fn legal_moves(state: &GameState, mbb: &MagicBitBoards) -> Vec<Move> {
             pseudo_legals = pseudo_legals | ep_mask;
 
             pseudo_legals.iter()
-                .map(move |tgt| Move::Normal(src.into_coord(), tgt.into_coord()))
+                .map(move |tgt| Move::Normal(src, tgt))
         });
 
     // Cloning the whole board probably not the most efficient.
@@ -71,8 +70,8 @@ pub fn legal_moves(state: &GameState, mbb: &MagicBitBoards) -> Vec<Move> {
     let moves_without_suicidal_king = mostly_legal_moves.filter(|m| {
         match m {
             Move::Normal(src, tgt) => {
-                if *src == BitCoord(side.pieces.king.0).into_coord() {
-                    !square_under_attack(occupancy_without_king, &other_side.pieces, *tgt, colour, mbb)
+                if *src == BitCoord(side.pieces.king.0) {
+                    !square_under_attack(occupancy_without_king, &other_side.pieces, tgt.into_coord(), colour, mbb)
                 } else {
                     true
                 }
@@ -87,11 +86,11 @@ pub fn legal_moves(state: &GameState, mbb: &MagicBitBoards) -> Vec<Move> {
     for m in moves_without_suicidal_king {
         match m {
             Move::Normal(src, tgt) => {
-                match state.board[src as usize] {
+                match state.board[src.into_coord() as usize] {
                     Square::Occupied(_, Piece::Pawn) => {
                         // Expand pawn moves to last rank.
                         // Don't have to check colours since pawns can't move backwards.
-                        if rank(tgt) == 7 || rank(tgt) == 0 {
+                        if BitBoard(0xFF_00_00_00_00_00_00_FF) & tgt != BitBoard::EMPTY {
                             moves.push(Move::Promotion(src, tgt, Piece::Queen));
                             moves.push(Move::Promotion(src, tgt, Piece::Rook));
                             moves.push(Move::Promotion(src, tgt, Piece::Bishop));

@@ -3,7 +3,7 @@ use std::fmt::Display;
 use crate::board::{file, rank};
 use crate::fmt::{format_file, format_rank, format_piece};
 use crate::magic::MagicBitBoards;
-use crate::types::{Coordinate, GameState, Move, Piece, Square};
+use crate::types::{Coordinate, GameState, IntoCoord, Move, Piece, Square};
 
 pub enum PGNMove {
     Normal(PGNMoveData),
@@ -31,19 +31,19 @@ impl PGNMove {
 
         match mv {
             Move::Normal(src, tgt) => {
-                let piece = match state.board[src as usize] {
+                let piece = match state.board[src.into_coord() as usize] {
                     Square::Occupied(_, p) => p,
                     _ => panic!("Source square is empty"),
                 };
 
-                let is_capture = match state.board[tgt as usize] {
+                let is_capture = match state.board[tgt.into_coord() as usize] {
                     Square::Occupied(_, _) => true,
                     _ => false,
                 };
 
                 PGNMove::Normal(PGNMoveData{
                     piece,
-                    to_square: tgt,
+                    to_square: tgt.into_coord(),
                     is_capture,
                     is_check,
                     is_checkmate: false,
@@ -53,19 +53,19 @@ impl PGNMove {
                 })
             },
             Move::Promotion(src, tgt, promote_to) => {
-                let piece = match state.board[src as usize] {
+                let piece = match state.board[src.into_coord() as usize] {
                     Square::Occupied(_, p) => p,
                     _ => panic!("Source square is empty"),
                 };
 
-                let is_capture = match state.board[tgt as usize] {
+                let is_capture = match state.board[tgt.into_coord() as usize] {
                     Square::Occupied(_, _) => true,
                     _ => false,
                 };
 
                 PGNMove::Normal(PGNMoveData{
                     piece,
-                    to_square: tgt,
+                    to_square: tgt.into_coord(),
                     is_capture,
                     is_check,
                     is_checkmate: false,

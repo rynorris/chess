@@ -1,4 +1,4 @@
-use chess_lib::board::{coord, file, rank};
+use chess_lib::board::{coord};
 use chess_lib::types::{Board, Colour, Move, Piece, Square};
 use tui::buffer::Buffer;
 use tui::layout::Rect;
@@ -132,16 +132,16 @@ impl Widget for ChessBoard {
         // Highlight the given move.
         match self.highlight_move {
             Some(Move::Normal(src, tgt)) => {
-                let mut f = file(src) as u16;
-                let mut r = rank(src) as u16;
+                let mut f = src.file() as u16;
+                let mut r = src.rank() as u16;
                 for x in (f * (square_width + 1) + 1)..((f + 1) * (square_width + 1)) {
                     for y in ((7 - r) * (square_height + 1) + 1)..((7 - r + 1) * (square_height + 1)) {
                         buf.get_mut(board_x + x, board_y + y).set_bg(style::Color::Yellow);
                     }
                 }
 
-                f = file(tgt) as u16;
-                r = rank(tgt) as u16;
+                f = tgt.file() as u16;
+                r = tgt.rank() as u16;
                 for x in (f * (square_width + 1) + 1)..((f + 1) * (square_width + 1)) {
                     for y in ((7 - r) * (square_height + 1) + 1)..((7 - r + 1) * (square_height + 1)) {
                         buf.get_mut(board_x + x, board_y + y).set_bg(style::Color::Yellow);

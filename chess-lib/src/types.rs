@@ -247,8 +247,18 @@ pub trait IntoCoord {
 }
 
 // u64 with exactly 1 bit filled, representing a square.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub struct BitCoord(pub u64);
+
+impl BitCoord {
+    pub fn rank(self) -> u32 {
+        self.0.trailing_zeros() / 8
+    }
+
+    pub fn file(self) -> u32 {
+        (63 - self.0.trailing_zeros()) % 8
+    }
+}
 
 impl <T : Into<u64>> std::ops::BitAnd<T> for BitCoord {
     type Output = BitCoord;
@@ -348,8 +358,8 @@ impl <'a> IntoCoord for &'a str {
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub enum Move {
-    Normal(Coordinate, Coordinate),
-    Promotion(Coordinate, Coordinate, Piece),
+    Normal(BitCoord, BitCoord),
+    Promotion(BitCoord, BitCoord, Piece),
     Castle,
     LongCastle,
 }

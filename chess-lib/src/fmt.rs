@@ -1,4 +1,4 @@
-use crate::types::{Coordinate, Move, Piece};
+use crate::types::{Coordinate, IntoCoord, Move, Piece};
 use crate::board::{file, rank};
 
 pub fn format_piece(piece: Piece) -> char {
@@ -15,11 +15,11 @@ pub fn format_piece(piece: Piece) -> char {
 pub fn format_move(m: Move) -> String {
     match m {
         Move::Normal(src, tgt) => {
-            let s = format!("{}{}", format_coord(src), format_coord(tgt));
+            let s = format!("{}{}", format_coord(src.into_coord()), format_coord(tgt.into_coord()));
             s
         },
         Move::Promotion(src, tgt, pc) => {
-            let s = format!("{}{}{}", format_coord(src), format_coord(tgt), format_piece(pc));
+            let s = format!("{}{}{}", format_coord(src.into_coord()), format_coord(tgt.into_coord()), format_piece(pc));
             s
         },
         Move::Castle => "O-O".to_owned(),

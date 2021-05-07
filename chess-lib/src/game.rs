@@ -1,4 +1,4 @@
-use crate::board::{coord, directions, file, rank};
+use crate::board::{directions, file, rank};
 use crate::magic::MagicBitBoards;
 use crate::moves::square_under_attack;
 use crate::types::{BitCoord, Colour, Coordinate, GameState, IntoCoord, Move, Piece, Square};
@@ -9,11 +9,11 @@ impl GameState {
 
         match mv {
             Move::Normal(src, tgt) => {
-                self.move_piece(src, tgt);
+                self.move_piece(src.into_coord(), tgt.into_coord());
             },
             Move::Promotion(src, tgt, pc) => {
-                self.move_piece(src, tgt);
-                self.board[tgt as usize] = Square::Occupied(self.active_colour, pc);
+                self.move_piece(src.into_coord(), tgt.into_coord());
+                self.board[tgt.into_coord() as usize] = Square::Occupied(self.active_colour, pc);
 
                 let active_side = match self.active_colour {
                     Colour::White => &mut self.white,
