@@ -12,10 +12,6 @@ pub struct ChessBoard {
 }
 
 impl ChessBoard {
-    pub fn new(board: Board) -> ChessBoard {
-        ChessBoard{ board, highlight_move: None }
-    }
-
     pub fn with_highlight(board: Board, highlight: Move) -> ChessBoard {
         ChessBoard{ board, highlight_move: Some(highlight) }
     }

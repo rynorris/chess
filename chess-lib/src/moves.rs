@@ -281,11 +281,7 @@ fn piece_attacks_in_direction(colour: Colour, piece: Piece, dir: Direction) -> b
 }
 
 enum PieceMoves<'a> {
-    King(LineMoves<'a>),
-    Queen(LineMoves<'a>),
-    Rook(LineMoves<'a>),
     Bishop(LineMoves<'a>),
-    Knight(LineMoves<'a>),
     Pawn(PawnMoves<'a>),
 }
 
@@ -294,11 +290,7 @@ impl <'a> Iterator for PieceMoves<'a> {
 
     fn next(&mut self) -> Option<Coordinate> {
         match self {
-            PieceMoves::King(iter) => iter.next(),
-            PieceMoves::Queen(iter) => iter.next(),
-            PieceMoves::Rook(iter) => iter.next(),
             PieceMoves::Bishop(iter) => iter.next(),
-            PieceMoves::Knight(iter) => iter.next(),
             PieceMoves::Pawn(iter) => iter.next(),
         }
     }
@@ -483,38 +475,6 @@ fn magic_piece_movement(active_pieces: &Pieces, occupancy: BitBoard, coord: BitC
     moves & (!active_pieces.all())
 }
 
-struct BitBoardMoves {
-    src: BitCoord,
-    bb: BitBoard,
-    c: BitCoord,
-}
-
-impl BitBoardMoves {
-    fn new(src: BitCoord, bb: BitBoard) -> BitBoardMoves {
-        BitBoardMoves{ src, bb, c: BitCoord(1) }
-    }
-}
-
-impl Iterator for BitBoardMoves {
-    type Item = Move;
-
-    fn next(&mut self) -> Option<Move> {
-        if self.bb == BitBoard::EMPTY {
-            None
-        } else {
-            let zeros = self.bb.0.trailing_zeros();
-            self.c = self.c << zeros;
-            self.bb = self.bb >> zeros;
-
-            let mv = Some(Move::Normal(self.src.into_coord(), self.c.into_coord()));
-            self.c = self.c << 1u32;
-            self.bb = self.bb >> 1u32;
-
-            mv
-        }
-    }
-}
-
 fn moves_in_line<'a>(board: &'a Board, colour: Colour, line: Line, limit: usize) -> UntilBlocked<'a, std::iter::Take<Line>> {
     UntilBlocked::new(board, colour, true, line.take(limit))
 }
@@ -645,41 +605,5 @@ mod tests {
         Given a Black Pawn on "d4", a White Knight on "c3",
         the piece on "d4",
         can move to "c3", "d3"
-    ];
-
-    test_movement![ king_unobstructed:
-        Given a White King on "d4",
-        the piece on "d4",
-        can move to "e3", "e4", "e5", "d3", "d5", "c3", "c4", "c5"
-    ];
-
-    test_movement![ king_in_corner:
-        Given a White King on "h8",
-        the piece on "h8",
-        can move to "h7", "g7", "g8"
-    ];
-
-    test_movement![ knight_unobstructed:
-        Given a Black Knight on "d4",
-        the piece on "d4",
-        can move to "b5", "c6", "e6", "f5", "f3", "e2", "c2", "b3"
-    ];
-
-    test_movement![ knight_in_corner:
-        Given a White Knight on "a1",
-        the piece on "a1",
-        can move to "b3", "c2"
-    ];
-
-    test_movement![ knight_blocked:
-        Given a White Knight on "a1", a White Queen on "c2",
-        the piece on "a1",
-        can move to "b3"
-    ];
-
-    test_movement![ knight_capture:
-        Given a Black Knight on "a1", a White Queen on "c2",
-        the piece on "a1",
-        can move to "b3", "c2"
     ];
 }
