@@ -1,4 +1,4 @@
-use crate::board::{directions, is_in_bounds, rank, Coords, Direction, Line};
+use crate::board::{directions, is_in_bounds, rank, Direction, Line};
 use crate::magic::MagicBitBoards;
 use crate::types::{BitBoard, BitCoord, Board, Colour, Coordinate, GameState, IntoCoord, Move, Piece, Pieces, Square};
 
@@ -35,24 +35,12 @@ pub fn legal_moves(state: &GameState, mbb: &MagicBitBoards) -> Vec<Move> {
     });
 
     // Now get all moves disregarding restrictions.
-    let piece_coords = Coords::new().filter(|c| match state.board[*c as usize] {
-        Square::Occupied(col, _) => col == colour,
-        _ => false,
-    });
-
-    let old_moves = piece_coords.flat_map(|coord| {
-        piece_movement(&state.board, coord, state.en_passant)
-            .map(move |tgt| Move::Normal(coord, tgt))
-    });
-
-    let magic_moves = side.pieces.all()
+    let moves_without_restrictions = side.pieces.all()
         .iter()
         .flat_map(|src| {
-            magic_piece_movement(&side.pieces, &other_side.pieces, src, colour, mbb).iter()
+            magic_piece_movement(&side.pieces, &other_side.pieces, src, colour, state.en_passant.map(|c| c.into()), mbb).iter()
                 .map(move |tgt| Move::Normal(src.into_coord(), tgt.into_coord()))
         });
-
-    let moves_without_restrictions = old_moves.chain(magic_moves);
 
     // Move only allowed if it blocks all checks, or is king move.
     let moves_respecting_checks = moves_without_restrictions.filter(|m| {
@@ -279,151 +267,7 @@ fn piece_attacks_in_direction(colour: Colour, piece: Piece, dir: Direction) -> b
     }
 }
 
-enum PieceMoves<'a> {
-    Bishop(LineMoves<'a>),
-    Pawn(PawnMoves<'a>),
-}
-
-impl <'a> Iterator for PieceMoves<'a> {
-    type Item = Coordinate;
-
-    fn next(&mut self) -> Option<Coordinate> {
-        match self {
-            PieceMoves::Bishop(iter) => iter.next(),
-            PieceMoves::Pawn(iter) => iter.next(),
-        }
-    }
-}
-
-struct LineMoves<'a> {
-    board: &'a Board,
-    coord: Coordinate,
-    colour: Colour,
-    range: usize,
-    dirs: std::slice::Iter<'a, Direction>,
-
-    cur_dir: Option<UntilBlocked<'a, std::iter::Take<Line>>>,
-}
-
-impl <'a> LineMoves<'a> {
-    fn new(
-        board: &'a Board,
-        coord: Coordinate,
-        colour: Colour,
-        dirs: std::slice::Iter<'a, Direction>,
-        range: usize,
-    ) -> LineMoves<'a> {
-        LineMoves{
-            board,
-            coord,
-            colour,
-            range,
-            dirs: dirs,
-            cur_dir: None,
-        }
-    }
-}
-
-impl <'a> Iterator for LineMoves<'a> {
-    type Item = Coordinate;
-
-    fn next(&mut self) -> Option<Coordinate> {
-        loop {
-            let next_coord = self.cur_dir.as_mut().and_then(|iter| iter.next());
-
-            match next_coord {
-                Some(c) => return Some(c),
-                None => {
-                    match self.dirs.next() {
-                        Some(dir) => {
-                            self.cur_dir = Some(moves_in_line(self.board, self.colour, Line::new(self.coord, *dir), self.range).into_iter());
-                        },
-                        None => return None,
-                    }
-                },
-            }
-        }
-    }
-}
-
-struct PawnMoves<'a> {
-    board: &'a Board,
-    coord: Coordinate,
-    colour: Colour,
-    en_passant: Option<Coordinate>,
-
-    step: u8,
-}
-
-impl <'a> PawnMoves<'a> {
-    fn new(board: &'a Board, coord: Coordinate, colour: Colour, en_passant: Option<Coordinate>) -> PawnMoves {
-        PawnMoves{
-            board,
-            coord,
-            colour,
-            en_passant,
-            step: 0,
-        }
-    }
-
-    fn can_capture(&self, tgt: Coordinate) -> bool {
-        let regular_capture = can_capture(self.board, self.colour, tgt);
-        let en_passant = self.en_passant.map(|ep| ep == tgt).unwrap_or(false);
-        regular_capture || en_passant
-    }
-}
-
-impl <'a> Iterator for PawnMoves<'a> {
-    type Item = Coordinate;
-
-    fn next(&mut self) -> Option<Coordinate> {
-        let (d1, d2) = match self.colour {
-            Colour::White => (directions::UP_LEFT, directions::UP_RIGHT),
-            Colour::Black => (directions::DOWN_LEFT, directions::DOWN_RIGHT),
-        };
-
-        loop {
-            match self.step {
-                0 => {
-                    // Diagonal capture 1.
-                    let tgt = self.coord.wrapping_add(d1);
-                    self.step += 1;
-                    if is_in_bounds(tgt) && self.can_capture(tgt) {
-                        return Some(tgt);
-                    }
-                },
-                1 => {
-                    // Diagonal capture 1.
-                    let tgt = self.coord.wrapping_add(d2);
-                    self.step += 1;
-                    if is_in_bounds(tgt) && self.can_capture(tgt) {
-                        return Some(tgt);
-                    }
-                },
-                2 => return None,
-                _ => panic!("Invalid iterator state: step={}", self.step),
-            }
-        }
-    }
-}
-
-fn piece_movement(board: &Board, coord: Coordinate, en_passant: Option<Coordinate>) -> PieceMoves {
-    let (colour, piece) = match board[coord as usize] {
-        Square::Occupied(p, c) => (p, c),
-        Square::Empty => panic!("No piece on square {}", coord),
-    };
-
-    match piece {
-        Piece::Pawn => {
-            PieceMoves::Pawn(PawnMoves::new(&board, coord, colour, en_passant))
-        },
-        _ => {
-            PieceMoves::Bishop(LineMoves::new(board, coord, colour, [].iter(), 0))
-        },
-    }
-}
-
-fn magic_piece_movement(active_pieces: &Pieces, other_pieces: &Pieces, coord: BitCoord, colour: Colour, mbb: &MagicBitBoards) -> BitBoard {
+fn magic_piece_movement(active_pieces: &Pieces, other_pieces: &Pieces, coord: BitCoord, colour: Colour, en_passant: Option<BitCoord>, mbb: &MagicBitBoards) -> BitBoard {
     let active_occupancy = active_pieces.all();
     let other_occupancy = other_pieces.all();
     let occupancy = active_occupancy | other_occupancy;
@@ -450,7 +294,7 @@ fn magic_piece_movement(active_pieces: &Pieces, other_pieces: &Pieces, coord: Bi
             mbb.king(coord)
         },
         Piece::Pawn => {
-            magic_pawn_moves(active_occupancy, other_occupancy, coord, colour)
+            magic_pawn_moves(active_occupancy, other_occupancy, coord, colour, en_passant)
         },
     };
 
@@ -458,7 +302,7 @@ fn magic_piece_movement(active_pieces: &Pieces, other_pieces: &Pieces, coord: Bi
     moves & (!active_pieces.all())
 }
 
-fn magic_pawn_moves(active_occupancy: BitBoard, other_occupancy: BitBoard, coord: BitCoord, colour: Colour) -> BitBoard {
+fn magic_pawn_moves(active_occupancy: BitBoard, other_occupancy: BitBoard, coord: BitCoord, colour: Colour, en_passant: Option<BitCoord>) -> BitBoard {
     let occupancy = active_occupancy | other_occupancy;
     match colour {
         Colour::White => {
@@ -468,7 +312,19 @@ fn magic_pawn_moves(active_occupancy: BitBoard, other_occupancy: BitBoard, coord
             if (home_row & coord != BitBoard::EMPTY) && (moves & occupancy == BitBoard::EMPTY) {
                 moves = moves | (coord << 16);
             }
-            moves & (!occupancy)
+            moves = moves & (!occupancy);
+
+            let tgts = other_occupancy | en_passant.unwrap_or(BitCoord(0));
+            let mut atks = BitBoard::EMPTY;
+            let file = (63 - coord.0.trailing_zeros()) % 8;
+            if file != 0 {
+                atks = atks | (coord << 9);
+            }
+            if file != 7 {
+                atks = atks | (coord << 7);
+            }
+
+            moves | (atks & tgts)
         },
         Colour::Black => {
             let home_row = BitBoard(0x00_FF_00_00_00_00_00_00);
@@ -477,7 +333,20 @@ fn magic_pawn_moves(active_occupancy: BitBoard, other_occupancy: BitBoard, coord
             if (home_row & coord != BitBoard::EMPTY) && (moves & occupancy == BitBoard::EMPTY) {
                 moves = moves | (coord >> 16);
             }
-            moves & (!occupancy)
+
+            moves = moves & (!occupancy);
+
+            let tgts = other_occupancy | en_passant.unwrap_or(BitCoord(0));
+            let mut atks = BitBoard::EMPTY;
+            let file = (63 - coord.0.trailing_zeros()) % 8;
+            if file != 0 {
+                atks = atks | (coord >>  7);
+            }
+            if file != 7 {
+                atks = atks | (coord >> 9);
+            }
+
+            moves | (atks & tgts)
         },
     }
 
