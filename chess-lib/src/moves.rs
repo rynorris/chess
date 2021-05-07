@@ -46,9 +46,12 @@ pub fn legal_moves(state: &GameState, mbb: &MagicBitBoards) -> Vec<Move> {
     });
 
     let occupancy = state.white.pieces.all() | state.black.pieces.all();
-    let magic_moves = (0..64)
-        .map(|x| BitCoord(1 << x))
-        .flat_map(|c| BitBoardMoves::new(c, magic_piece_movement(&side.pieces, occupancy, c, mbb)));
+    let magic_moves = side.pieces.all()
+        .iter()
+        .flat_map(|src| {
+            magic_piece_movement(&side.pieces, occupancy, src, mbb).iter()
+                .map(move |tgt| Move::Normal(src.into_coord(), tgt.into_coord()))
+        });
 
     let moves_without_restrictions = old_moves.chain(magic_moves);
 

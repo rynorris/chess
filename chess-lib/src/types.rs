@@ -47,6 +47,11 @@ impl Pieces {
         *bb = *bb | coord;
     }
 
+    pub fn remove_piece(&mut self, piece: Piece, coord: BitCoord) {
+        let bb: &mut BitBoard = self.piece_bb(piece);
+        *bb = *bb & (!coord);
+    }
+
     pub fn clear_square(&mut self, coord: BitCoord) {
         self.king = self.king & (!coord);
         self.queens = self.queens & (!coord);
@@ -191,7 +196,37 @@ impl BitBoard {
             self
         }
     }
+
+    pub fn iter(self) -> BitBoardIter {
+        BitBoardIter{bb: self, c: BitCoord(1)}
+    }
 }
+
+pub struct BitBoardIter {
+    bb: BitBoard,
+    c: BitCoord,
+}
+
+impl Iterator for BitBoardIter {
+    type Item = BitCoord;
+
+    fn next(&mut self) -> Option<BitCoord> {
+        if self.bb == BitBoard::EMPTY {
+            None
+        } else {
+            let zeros = self.bb.0.trailing_zeros();
+            self.c = self.c << zeros;
+            self.bb = self.bb >> zeros;
+
+            let ret = Some(self.c);
+            self.c = self.c << 1u32;
+            self.bb = self.bb >> 1u32;
+
+            ret
+        }
+    }
+}
+
 
 // Upper nibble = File
 // Lower nibble = Rank

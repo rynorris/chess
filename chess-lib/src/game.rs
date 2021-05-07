@@ -18,7 +18,7 @@ impl GameState {
                     Colour::White => &mut self.white,
                     Colour::Black => &mut self.black,
                 };
-                active_side.pieces.clear_square(tgt.into());
+                active_side.pieces.remove_piece(pc, tgt.into());
                 active_side.pieces.put_piece(pc, tgt.into());
             },
             Move::Castle => {
