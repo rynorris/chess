@@ -7,11 +7,11 @@ impl GameState {
         self.fifty_move_clock += 1;
 
         match mv {
-            Move::Normal(src, tgt) => {
-                self.move_piece(src, tgt);
+            Move::Normal(piece, src, tgt) => {
+                self.move_piece(piece, src, tgt);
             },
             Move::Promotion(src, tgt, pc) => {
-                self.move_piece(src, tgt);
+                self.move_piece(Piece::Pawn, src, tgt);
 
                 let active_side = match self.active_colour {
                     Colour::White => &mut self.white,
@@ -94,7 +94,7 @@ impl GameState {
         None
     }
 
-    fn move_piece(&mut self, src: BitCoord, tgt: BitCoord) {
+    fn move_piece(&mut self, piece: Piece, src: BitCoord, tgt: BitCoord) {
         let colour = self.active_colour;
 
         let (active_side, other_side) = match colour {
@@ -120,10 +120,11 @@ impl GameState {
         let initial_king: BitCoord = BitCoord(home_rank.0 & 0x08_00_00_00_00_00_00_08);
 
         let is_capture = other_side.pieces.all() & tgt != BitBoard::EMPTY;
-        let is_pawn = active_side.pieces.pawns & src != BitBoard::EMPTY;
+        let is_pawn = piece == Piece::Pawn;
 
-        active_side.pieces.move_piece(src.into(), tgt.into());
-        other_side.pieces.clear_square(tgt.into());
+        active_side.pieces.remove_piece(piece, src);
+        active_side.pieces.put_piece(piece, tgt);
+        other_side.pieces.clear_square(tgt);
 
         if is_pawn && self.en_passant.map(|ep| ep == tgt).unwrap_or(false) {
             let taken_coord = match colour {

@@ -13,7 +13,7 @@ pub fn format_piece(piece: Piece) -> char {
 
 pub fn format_move(m: Move) -> String {
     match m {
-        Move::Normal(src, tgt) => {
+        Move::Normal(_, src, tgt) => {
             let s = format!("{}{}", format_coord(src), format_coord(tgt));
             s
         },

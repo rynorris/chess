@@ -10,7 +10,9 @@ pub fn legal_moves(state: &GameState, mbb: &MagicBitBoards) -> Vec<Move> {
     };
 
     // Calculate restrictions on allowed moves based on checks and pins.
-    let occupancy = side.pieces.all() | other_side.pieces.all();
+    let active_occupancy = side.pieces.all();
+    let other_occupancy = other_side.pieces.all();
+    let occupancy = active_occupancy | other_occupancy;
     let attacks = attacks_on_square(occupancy, &other_side.pieces, BitCoord(side.pieces.king.0), colour, mbb);
 
     // If there are checks, this bitfield will contain the squares which stop ALL checks.
@@ -38,7 +40,16 @@ pub fn legal_moves(state: &GameState, mbb: &MagicBitBoards) -> Vec<Move> {
     let mostly_legal_moves = side.pieces.all()
         .iter()
         .flat_map(|src| {
-            let mut pseudo_legals = magic_piece_movement(&side.pieces, &other_side.pieces, src, colour, state.en_passant.map(|c| c.into()), mbb);
+            let piece = side.pieces.get_piece(src).expect("No piece on square");
+            let mut pseudo_legals = magic_piece_movement(
+                piece,
+                active_occupancy,
+                other_occupancy,
+                occupancy,
+                src,
+                colour,
+                state.en_passant,
+            mbb);
             
             // If there's en-passant, store it off and add it back in later.
             let ep_mask = if side.pieces.pawns & src != BitBoard::EMPTY {
@@ -60,7 +71,7 @@ pub fn legal_moves(state: &GameState, mbb: &MagicBitBoards) -> Vec<Move> {
             pseudo_legals = pseudo_legals | ep_mask;
 
             pseudo_legals.iter()
-                .map(move |tgt| Move::Normal(src, tgt))
+                .map(move |tgt| Move::Normal(piece, src, tgt))
         });
 
     // Cloning the whole board probably not the most efficient.
@@ -69,8 +80,8 @@ pub fn legal_moves(state: &GameState, mbb: &MagicBitBoards) -> Vec<Move> {
     // Remove king moves which would put the king in check.
     let moves_without_suicidal_king = mostly_legal_moves.filter(|m| {
         match m {
-            Move::Normal(src, tgt) => {
-                if *src == BitCoord(side.pieces.king.0) {
+            Move::Normal(piece, _, tgt) => {
+                if *piece == Piece::King {
                     !square_under_attack(occupancy_without_king, &other_side.pieces, *tgt, colour, mbb)
                 } else {
                     true
@@ -85,8 +96,8 @@ pub fn legal_moves(state: &GameState, mbb: &MagicBitBoards) -> Vec<Move> {
     let mut moves: Vec<Move> = Vec::with_capacity(256);
     for m in moves_without_suicidal_king {
         match m {
-            Move::Normal(src, tgt) => {
-                let is_pawn = side.pieces.pawns & src != BitBoard::EMPTY;
+            Move::Normal(piece, src, tgt) => {
+                let is_pawn = piece == Piece::Pawn;
                 if is_pawn {
                     // Expand pawn moves to last rank.
                     // Don't have to check colours since pawns can't move backwards.
@@ -252,16 +263,16 @@ fn attacks_on_square(occupancy: BitBoard, other_pieces: &Pieces, coord: BitCoord
     attacks
 }
 
-fn magic_piece_movement(active_pieces: &Pieces, other_pieces: &Pieces, coord: BitCoord, colour: Colour, en_passant: Option<BitCoord>, mbb: &MagicBitBoards) -> BitBoard {
-    let active_occupancy = active_pieces.all();
-    let other_occupancy = other_pieces.all();
-    let occupancy = active_occupancy | other_occupancy;
-
-    let piece = match active_pieces.get_piece(coord) {
-        Some(p) => p,
-        None => return BitBoard::EMPTY,
-    };
-
+fn magic_piece_movement(
+    piece: Piece,
+    active_occupancy: BitBoard,
+    other_occupancy: BitBoard,
+    occupancy: BitBoard,
+    coord: BitCoord,
+    colour: Colour,
+    en_passant: Option<BitCoord>,
+    mbb: &MagicBitBoards,
+) -> BitBoard {
     let moves = match piece {
         Piece::Queen => {
             mbb.rook(coord).lookup(occupancy) | mbb.bishop(coord).lookup(occupancy)
@@ -284,7 +295,7 @@ fn magic_piece_movement(active_pieces: &Pieces, other_pieces: &Pieces, coord: Bi
     };
 
     // Remove moves that capture our own pieces.
-    moves & (!active_pieces.all())
+    moves & (!active_occupancy)
 }
 
 fn magic_pawn_moves(active_occupancy: BitBoard, other_occupancy: BitBoard, coord: BitCoord, colour: Colour, en_passant: Option<BitCoord>) -> BitBoard {

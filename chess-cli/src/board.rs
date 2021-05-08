@@ -130,7 +130,7 @@ impl Widget for ChessBoard {
 
         // Highlight the given move.
         match self.highlight_move {
-            Some(Move::Normal(src, tgt)) => {
+            Some(Move::Normal(_, src, tgt)) => {
                 let mut f = src.file() as u16;
                 let mut r = src.rank() as u16;
                 for x in (f * (square_width + 1) + 1)..((f + 1) * (square_width + 1)) {

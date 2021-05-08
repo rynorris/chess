@@ -315,7 +315,7 @@ impl From<u64> for BitCoord {
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub enum Move {
-    Normal(BitCoord, BitCoord),
+    Normal(Piece, BitCoord, BitCoord),
     Promotion(BitCoord, BitCoord, Piece),
     Castle,
     LongCastle,

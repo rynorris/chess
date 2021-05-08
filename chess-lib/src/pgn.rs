@@ -29,12 +29,7 @@ impl PGNMove {
         let is_check = new_state.is_in_check(mbb);
 
         match mv {
-            Move::Normal(src, tgt) => {
-                let piece = match state.find_piece(src) {
-                    Some((_, p)) => p,
-                    _ => panic!("Source square is empty"),
-                };
-
+            Move::Normal(piece, _, tgt) => {
                 let is_capture = match state.find_piece(tgt) {
                     Some(_) => true,
                     _ => panic!("Source square is empty"),
