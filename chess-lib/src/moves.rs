@@ -174,12 +174,35 @@ enum Attack {
 }
 
 pub fn square_under_attack(occupancy: BitBoard, other_pieces: &Pieces, coord: BitCoord, colour: Colour, mbb: &MagicBitBoards) -> bool {
-    attacks_on_square(occupancy, other_pieces, coord, colour, mbb)
-        .iter()
-        .any(|atk| match atk {
-            Attack::Check(_) => true,
-            _ => false,
-        })
+    let straight_atks = mbb.rook(coord).lookup(occupancy) & (other_pieces.rooks | other_pieces.queens);
+    if straight_atks != BitBoard::EMPTY {
+        return true;
+    }
+
+    let diag_atks = mbb.bishop(coord).lookup(occupancy) & (other_pieces.bishops | other_pieces.queens);
+    if diag_atks != BitBoard::EMPTY {
+        return true;
+    }
+
+    // Knights
+    let knight_atks = mbb.knight(coord) & other_pieces.knights;
+    if knight_atks != BitBoard::EMPTY {
+        return true;
+    }
+
+    // King
+    let king_atks = mbb.king(coord) & other_pieces.king;
+    if king_atks != BitBoard::EMPTY {
+        return true;
+    }
+
+    // Pawns
+    let pawn_atks = pawn_attacks(coord, colour) & other_pieces.pawns;
+    if pawn_atks != BitBoard::EMPTY {
+        return true;
+    }
+
+    false
 }
 
 fn attacks_on_square(occupancy: BitBoard, other_pieces: &Pieces, coord: BitCoord, colour: Colour, mbb: &MagicBitBoards) -> Vec<Attack> {
