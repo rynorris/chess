@@ -7,6 +7,7 @@ pub mod moves;
 pub mod perft;
 pub mod pgn;
 pub mod types;
+pub mod zobrist;
 
 #[cfg(test)]
 mod tests {
