@@ -1,5 +1,5 @@
 use crate::magic::{Line, MagicBitBoards};
-use crate::types::{BitBoard, BitCoord, Colour, Coordinate, GameState, IntoCoord, Move, Piece, Pieces};
+use crate::types::{BitBoard, BitCoord, Colour, GameState, Move, Piece, Pieces};
 
 pub fn legal_moves(state: &GameState, mbb: &MagicBitBoards) -> Vec<Move> {
     let colour = state.active_colour;
@@ -71,7 +71,7 @@ pub fn legal_moves(state: &GameState, mbb: &MagicBitBoards) -> Vec<Move> {
         match m {
             Move::Normal(src, tgt) => {
                 if *src == BitCoord(side.pieces.king.0) {
-                    !square_under_attack(occupancy_without_king, &other_side.pieces, tgt.into_coord(), colour, mbb)
+                    !square_under_attack(occupancy_without_king, &other_side.pieces, *tgt, colour, mbb)
                 } else {
                     true
                 }
@@ -110,7 +110,7 @@ pub fn legal_moves(state: &GameState, mbb: &MagicBitBoards) -> Vec<Move> {
                         new_pieces.clear_square(src.into());
                         new_other_pieces.clear_square(taken_coord);
                         let new_occupancy = new_pieces.all() | new_other_pieces.all();
-                        if !square_under_attack(new_occupancy, &new_other_pieces, BitCoord(new_pieces.king.0).into_coord(), colour, mbb) {
+                        if !square_under_attack(new_occupancy, &new_other_pieces, BitCoord(new_pieces.king.0), colour, mbb) {
                             moves.push(m);
                         }
                     } else {
@@ -126,22 +126,17 @@ pub fn legal_moves(state: &GameState, mbb: &MagicBitBoards) -> Vec<Move> {
 
 
     // Add castling if legal.
-    let home_rank_bb = match colour {
+    let home_rank = match colour {
         Colour::White => BitBoard(0x00_00_00_00_00_00_00_FF),
         Colour::Black => BitBoard(0xFF_00_00_00_00_00_00_00),
-    };
-
-    let home_rank = match colour {
-        Colour::White => 0x00,
-        Colour::Black => 0x07,
     };
 
     if side.can_castle_queenside {
         if !(
             is_in_check ||
-            occupancy & 0x70_70_70_70_70_70_70_70u64 & home_rank_bb != BitBoard::EMPTY ||
-            square_under_attack(occupancy, &other_side.pieces, 0x20 | home_rank, colour, mbb) ||
-            square_under_attack(occupancy, &other_side.pieces, 0x30 | home_rank, colour, mbb)
+            occupancy & 0x70_70_70_70_70_70_70_70u64 & home_rank != BitBoard::EMPTY ||
+            square_under_attack(occupancy, &other_side.pieces, BitCoord(0x20_00_00_00_00_00_00_20) & home_rank, colour, mbb) ||
+            square_under_attack(occupancy, &other_side.pieces, BitCoord(0x10_00_00_00_00_00_00_10) & home_rank, colour, mbb)
         ) {
             moves.push(Move::LongCastle);
         }
@@ -150,9 +145,9 @@ pub fn legal_moves(state: &GameState, mbb: &MagicBitBoards) -> Vec<Move> {
     if side.can_castle_kingside {
         if !(
             is_in_check ||
-            occupancy & 0x06_06_06_06_06_06_06_06u64 & home_rank_bb != BitBoard::EMPTY ||
-            square_under_attack(occupancy, &other_side.pieces, 0x50 | home_rank, colour, mbb) ||
-            square_under_attack(occupancy, &other_side.pieces, 0x60 | home_rank, colour, mbb)
+            occupancy & 0x06_06_06_06_06_06_06_06u64 & home_rank != BitBoard::EMPTY ||
+            square_under_attack(occupancy, &other_side.pieces, BitCoord(0x04_00_00_00_00_00_00_04) & home_rank, colour, mbb) ||
+            square_under_attack(occupancy, &other_side.pieces, BitCoord(0x02_00_00_00_00_00_00_02) & home_rank, colour, mbb)
         ) {
             moves.push(Move::Castle);
         }
@@ -167,8 +162,8 @@ enum Attack {
     Pin(BitCoord, BitBoard),
 }
 
-pub fn square_under_attack(occupancy: BitBoard, other_pieces: &Pieces, coord: Coordinate, colour: Colour, mbb: &MagicBitBoards) -> bool {
-    attacks_on_square(occupancy, other_pieces, coord.into(), colour, mbb)
+pub fn square_under_attack(occupancy: BitBoard, other_pieces: &Pieces, coord: BitCoord, colour: Colour, mbb: &MagicBitBoards) -> bool {
+    attacks_on_square(occupancy, other_pieces, coord, colour, mbb)
         .iter()
         .any(|atk| match atk {
             Attack::Check(_) => true,

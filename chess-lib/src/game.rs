@@ -1,6 +1,6 @@
 use crate::magic::MagicBitBoards;
 use crate::moves::square_under_attack;
-use crate::types::{BitBoard, BitCoord, Colour, GameState, IntoCoord, Move, Piece};
+use crate::types::{BitBoard, BitCoord, Colour, GameState, Move, Piece};
 
 impl GameState {
     pub fn make_move(&mut self, mv: Move) {
@@ -75,7 +75,7 @@ impl GameState {
             Colour::White => (&self.white, &self.black),
             Colour::Black => (&self.black, &self.white),
         };
-        let king = BitCoord::from(Into::<u64>::into(side.pieces.king)).into_coord();
+        let king = BitCoord(side.pieces.king.0);
 
         square_under_attack(occupancy, &other_side.pieces, king, self.active_colour, mbb)
     }

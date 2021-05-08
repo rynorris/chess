@@ -233,16 +233,6 @@ impl Iterator for BitBoardIter {
     }
 }
 
-
-// Upper nibble = File
-// Lower nibble = Rank
-// i.e. b6 => (1, 5) => 0x15
-pub type Coordinate = u8;
-
-pub trait IntoCoord {
-    fn into_coord(self) -> Coordinate;
-}
-
 // u64 with exactly 1 bit filled, representing a square.
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub struct BitCoord(pub u64);
@@ -323,43 +313,6 @@ impl From<u64> for BitCoord {
     }
 }
 
-impl From<Coordinate> for BitCoord {
-    fn from(coord: Coordinate) -> BitCoord {
-        (coord >> 4, coord & 0xF).into()
-    }
-}
-
-impl IntoCoord for (u8, u8) {
-    fn into_coord(self) -> Coordinate {
-        let (file, rank) = self;
-        ((file & 0xF) << 4) + (rank & 0xF)
-    }
-}
-
-impl IntoCoord for BitCoord {
-    fn into_coord(self) -> Coordinate {
-        let zeros = self.0.trailing_zeros();
-        let file = 7 - (zeros % 8) as u8;
-        let rank = (zeros / 8) as u8;
-        ((file & 0xF) << 4) + (rank & 0xF)
-    }
-}
-
-impl <'a> IntoCoord for &'a str {
-    fn into_coord(self) -> Coordinate {
-        let mut chars = self.chars();
-        let file = match chars.next().and_then(|c| c.to_digit(18)) {
-            None => panic!("Malformed coordinate string: {}", self),
-            Some(d) => d - 10,
-        };
-        let rank = match chars.next().and_then(|c| c.to_digit(10)) {
-            None => panic!("Malformed coordinate string: {}", self),
-            Some(d) => d - 1,
-        };
-        (file as u8, rank as u8).into_coord()
-    }
-}
-
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub enum Move {
     Normal(BitCoord, BitCoord),
@@ -371,14 +324,6 @@ pub enum Move {
 #[cfg(test)]
 mod test {
     use crate::types::*;
-
-    #[test]
-    fn str_to_coord() {
-        assert_eq!("a1".into_coord(), 0x00);
-        assert_eq!("d4".into_coord(), 0x33);
-        assert_eq!("b7".into_coord(), 0x16);
-        assert_eq!("h8".into_coord(), 0x77);
-    }
 
     #[test]
     fn test_put_piece() {
