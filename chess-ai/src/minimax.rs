@@ -12,21 +12,6 @@ pub struct AlphaBeta<G> {
     eval: Evaluator<G>,
 }
 
-#[derive(Clone, Copy, Debug)]
-enum Goal {
-    Max,
-    Min,
-}
-
-impl Goal {
-    fn other(g: Goal) -> Goal {
-        match g {
-            Goal::Max => Goal::Min,
-            Goal::Min => Goal::Max,
-        }
-    }
-}
-
 impl <G: Game> AlphaBeta<G> {
     pub fn new(eval: Evaluator<G>) -> AlphaBeta<G> {
         AlphaBeta{
