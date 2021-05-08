@@ -87,7 +87,7 @@ fn main() -> Result<(), io::Error> {
                     let mut results = alphabeta.evaluate(&chess, cmd.simulations as u32);
                     results.sort_by(|(_, a), (_, b)| b.partial_cmp(a).unwrap());
                     results.into_iter().for_each(|(m, s)| {
-                        println!("{}: {}", chess_lib::fmt::format_move(m), s);
+                        println!("{}: {:.2}", chess_lib::fmt::format_move(m), (s as f64) / 100f64);
                     });
 
                     Ok(())
