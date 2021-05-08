@@ -195,38 +195,5 @@ mod tests {
         Starting at position "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8",
         at depth 4, the number of possible moves is: 2_103_487
     ];
-
-    use rand::seq::SliceRandom;
-    use crate::moves::legal_moves;
-    #[test]
-    fn debugging() {
-        let mut state = load_fen(STARTING_POSITION);
-
-        for _ in 0..=3 {
-            let moves = legal_moves(&state);
-            let m = moves.choose(&mut rand::thread_rng());
-            state.make_move(*m.unwrap());
-            crate::board::print_board(&state.board);
-            println!();
-        }
-
-        panic!("Fail the test");
-    }
-
-    #[test]
-    fn divide() {
-        let state = load_fen("r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P1RPP/R2Q2K1 b kq - 0 1");
-        //let mut state = load_fen(STARTING_POSITION);
-        //state.make_move(crate::types::Move::Normal(0x10, 0x22));
-        //state.make_move(crate::types::Move::Normal(0x36, 0x35));
-        crate::board::print_board(&state.board);
-        let counts = crate::perft::divide(&state, 1);
-        let mut lines: Vec<String> = counts.iter().map(|(k, v)| {
-            return format!("{}: {}", k, v);
-        }).collect();
-        lines.sort();
-        lines.iter().for_each(|l| println!("{}", l));
-        panic!("Fail the test");
-    }
     */
 }

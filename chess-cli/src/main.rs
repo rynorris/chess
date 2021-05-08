@@ -79,7 +79,7 @@ fn main() -> Result<(), io::Error> {
             let mut terminal = Terminal::new(backend)?;
             terminal.clear()?;
             let state = chess_lib::fen::load_fen(&cmd.fen);
-            let position_board = state.board.clone();
+            let draw_state = state.clone();
 
             let chess = chess_ai::chess::Chess::new(state);
             let mut monte = chess_ai::montecarlo::MCTS::new(chess);
@@ -117,7 +117,7 @@ fn main() -> Result<(), io::Error> {
                         .bar_style(Style::default().fg(Color::Yellow))
                         .value_style(Style::default().fg(Color::Black).bg(Color::Yellow));
 
-                    let chess_board = board::ChessBoard::with_highlight(position_board.clone(), best_move);
+                    let chess_board = board::ChessBoard::with_highlight(draw_state.clone(), best_move);
 
                     f.render_widget(barchart, chunks[1]);
                     f.render_widget(chess_board, top_chunks[0]);

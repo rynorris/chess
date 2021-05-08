@@ -1,5 +1,5 @@
-use crate::board::{empty_board};
-use crate::types::{GameState, Colour, Piece, Pieces, SideState, Square};
+use crate::fmt::parse_coord;
+use crate::types::{BitCoord, GameState, Colour, Piece, Pieces, SideState};
 
 pub const STARTING_POSITION: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
@@ -7,60 +7,53 @@ pub fn load_fen(fen: &str) -> GameState {
     let mut fields = fen.split_whitespace();
 
     let positions = fields.next().expect("FEN string didn't contain piece positions");
-    let mut board = empty_board();
+
+    let mut w_pieces = Pieces::empty();
+    let mut b_pieces = Pieces::empty();
+
     // FEN starts at a8.
-    let mut coord = 0x07;
+    let mut coord = BitCoord(0x80_00_00_00_00_00_00_00);
     for c in positions.chars() {
         // Just do this naively.
         match c {
-            'Q' => board[coord as usize] = Square::Occupied(Colour::White, Piece::Queen),
-            'K' => board[coord as usize] = Square::Occupied(Colour::White, Piece::King),
-            'R' => board[coord as usize] = Square::Occupied(Colour::White, Piece::Rook),
-            'B' => board[coord as usize] = Square::Occupied(Colour::White, Piece::Bishop),
-            'N' => board[coord as usize] = Square::Occupied(Colour::White, Piece::Knight),
-            'P' => board[coord as usize] = Square::Occupied(Colour::White, Piece::Pawn),
-            'q' => board[coord as usize] = Square::Occupied(Colour::Black, Piece::Queen),
-            'k' => board[coord as usize] = Square::Occupied(Colour::Black, Piece::King),
-            'r' => board[coord as usize] = Square::Occupied(Colour::Black, Piece::Rook),
-            'b' => board[coord as usize] = Square::Occupied(Colour::Black, Piece::Bishop),
-            'n' => board[coord as usize] = Square::Occupied(Colour::Black, Piece::Knight),
-            'p' => board[coord as usize] = Square::Occupied(Colour::Black, Piece::Pawn),
+            'Q' => w_pieces.put_piece(Piece::Queen, coord),
+            'K' => w_pieces.put_piece(Piece::King, coord),
+            'R' => w_pieces.put_piece(Piece::Rook, coord),
+            'B' => w_pieces.put_piece(Piece::Bishop, coord),
+            'N' => w_pieces.put_piece(Piece::Knight, coord),
+            'P' => w_pieces.put_piece(Piece::Pawn, coord),
+            'q' => b_pieces.put_piece(Piece::Queen, coord),
+            'k' => b_pieces.put_piece(Piece::King, coord),
+            'r' => b_pieces.put_piece(Piece::Rook, coord),
+            'b' => b_pieces.put_piece(Piece::Bishop, coord),
+            'n' => b_pieces.put_piece(Piece::Knight, coord),
+            'p' => b_pieces.put_piece(Piece::Pawn, coord),
             '/' => {
-                coord = (coord & 0x0F) - 0x01;
                 continue;
             },  // Next rank down.
             '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' => {
                 let num_empty = c.to_digit(10).unwrap();
-                coord += num_empty * 0x10;
+                coord = coord >> num_empty;
                 continue
             },
             _ => panic!("Unexpected character in piece positions: {}", c),
         }
 
-        coord += 0x10;
+        coord = coord >> 1;
     }
 
     // Initialize side states from board.
     let mut white = SideState{
-        pieces: Pieces::empty(),
+        pieces: w_pieces,
         can_castle_kingside: false,
         can_castle_queenside: false,
     };
 
     let mut black = SideState{
-        pieces: Pieces::empty(),
+        pieces: b_pieces,
         can_castle_kingside: false,
         can_castle_queenside: false,
     };
-
-    // Populate bitboards.
-    for coord in 0..120u8 {
-        match board[coord as usize] {
-            Square::Occupied(Colour::White, piece) => white.pieces.put_piece(piece, coord.into()),
-            Square::Occupied(Colour::Black, piece) => black.pieces.put_piece(piece, coord.into()),
-            Square::Empty => (),
-        }
-    }
 
     let active_colour_field = fields.next().expect("FEN string didn't contain active colour");
     let active_colour = match active_colour_field {
@@ -81,12 +74,17 @@ pub fn load_fen(fen: &str) -> GameState {
         }
     }
 
+    let en_passant_field = fields.next().expect("FEN string didn't contain en-passant");
+    let en_passant = match en_passant_field {
+        "-" => None,
+        _ => Some(parse_coord(en_passant_field)),
+    };
+
     GameState{
-        board,
         active_colour,
         white,
         black,
-        en_passant: None,
+        en_passant,
         fifty_move_clock: 0,
     }
 }
@@ -94,43 +92,26 @@ pub fn load_fen(fen: &str) -> GameState {
 #[cfg(test)]
 mod tests {
     use crate::fen::*;
+    use crate::types::BitBoard;
 
     #[test]
     fn starting_position() {
         let state = load_fen(STARTING_POSITION);
 
-        // Check pieces rank by rank.
-        assert_eq!(state.board[0x07], Square::Occupied(Colour::Black, Piece::Rook));
-        assert_eq!(state.board[0x17], Square::Occupied(Colour::Black, Piece::Knight));
-        assert_eq!(state.board[0x27], Square::Occupied(Colour::Black, Piece::Bishop));
-        assert_eq!(state.board[0x37], Square::Occupied(Colour::Black, Piece::Queen));
-        assert_eq!(state.board[0x47], Square::Occupied(Colour::Black, Piece::King));
-        assert_eq!(state.board[0x57], Square::Occupied(Colour::Black, Piece::Bishop));
-        assert_eq!(state.board[0x67], Square::Occupied(Colour::Black, Piece::Knight));
-        assert_eq!(state.board[0x77], Square::Occupied(Colour::Black, Piece::Rook));
+        // Check pieces.
+        assert_eq!(state.white.pieces.king, BitBoard(0x00_00_00_00_00_00_00_08));
+        assert_eq!(state.white.pieces.queens, BitBoard(0x00_00_00_00_00_00_00_10));
+        assert_eq!(state.white.pieces.rooks, BitBoard(0x00_00_00_00_00_00_00_81));
+        assert_eq!(state.white.pieces.bishops, BitBoard(0x00_00_00_00_00_00_00_24));
+        assert_eq!(state.white.pieces.knights, BitBoard(0x00_00_00_00_00_00_00_42));
+        assert_eq!(state.white.pieces.pawns, BitBoard(0x00_00_00_00_00_00_FF_00));
 
-        for file in 0..=7 {
-            assert_eq!(state.board[0x06 | (file << 4)], Square::Occupied(Colour::Black, Piece::Pawn));
-        }
-
-        for rank in 2..=5 {
-            for file in 0..=7 {
-                assert_eq!(state.board[(file << 4) | rank], Square::Empty);
-            }
-        }
-
-        for file in 0..=7 {
-            assert_eq!(state.board[0x01 | (file << 4)], Square::Occupied(Colour::White, Piece::Pawn));
-        }
-
-        assert_eq!(state.board[0x00], Square::Occupied(Colour::White, Piece::Rook));
-        assert_eq!(state.board[0x10], Square::Occupied(Colour::White, Piece::Knight));
-        assert_eq!(state.board[0x20], Square::Occupied(Colour::White, Piece::Bishop));
-        assert_eq!(state.board[0x30], Square::Occupied(Colour::White, Piece::Queen));
-        assert_eq!(state.board[0x40], Square::Occupied(Colour::White, Piece::King));
-        assert_eq!(state.board[0x50], Square::Occupied(Colour::White, Piece::Bishop));
-        assert_eq!(state.board[0x60], Square::Occupied(Colour::White, Piece::Knight));
-        assert_eq!(state.board[0x70], Square::Occupied(Colour::White, Piece::Rook));
+        assert_eq!(state.black.pieces.king, BitBoard(0x08_00_00_00_00_00_00_00));
+        assert_eq!(state.black.pieces.queens, BitBoard(0x10_00_00_00_00_00_00_00));
+        assert_eq!(state.black.pieces.rooks, BitBoard(0x81_00_00_00_00_00_00_00));
+        assert_eq!(state.black.pieces.bishops, BitBoard(0x24_00_00_00_00_00_00_00));
+        assert_eq!(state.black.pieces.knights, BitBoard(0x42_00_00_00_00_00_00_00));
+        assert_eq!(state.black.pieces.pawns, BitBoard(0x00_FF_00_00_00_00_00_00));
 
         assert_eq!(state.white.can_castle_kingside, true);
         assert_eq!(state.white.can_castle_queenside, true);

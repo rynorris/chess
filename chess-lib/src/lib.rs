@@ -1,5 +1,4 @@
 #[macro_use]
-pub mod board;
 pub mod fen;
 pub mod fmt;
 pub mod game;

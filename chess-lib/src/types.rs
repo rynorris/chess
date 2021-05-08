@@ -1,7 +1,6 @@
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct GameState {
-    pub board: Board,
     pub active_colour: Colour,
     pub white: SideState,
     pub black: SideState,
@@ -53,12 +52,13 @@ impl Pieces {
     }
 
     pub fn clear_square(&mut self, coord: BitCoord) {
-        self.king = self.king & (!coord);
-        self.queens = self.queens & (!coord);
-        self.rooks = self.rooks & (!coord);
-        self.bishops = self.bishops & (!coord);
-        self.knights = self.knights & (!coord);
-        self.pawns = self.pawns & (!coord);
+        let mask = !coord;
+        self.king = self.king & mask;
+        self.queens = self.queens & mask;
+        self.rooks = self.rooks & mask;
+        self.bishops = self.bishops & mask;
+        self.knights = self.knights & mask;
+        self.pawns = self.pawns & mask;
     }
 
     pub fn get_piece(&self, coord: BitCoord) -> Option<Piece> {
@@ -80,12 +80,9 @@ impl Pieces {
     }
 
     pub fn move_piece(&mut self, from: BitCoord, to: BitCoord) {
-        self.king = self.king.move_if_present(from, to);
-        self.queens = self.queens.move_if_present(from, to);
-        self.rooks = self.rooks.move_if_present(from, to);
-        self.bishops = self.bishops.move_if_present(from, to);
-        self.knights = self.knights.move_if_present(from, to);
-        self.pawns = self.pawns.move_if_present(from, to);
+        let pc = self.get_piece(from).unwrap();
+        self.remove_piece(pc, from);
+        self.put_piece(pc, to);
     }
 
     fn piece_bb(&mut self, piece: Piece) -> &mut BitBoard {
@@ -308,6 +305,13 @@ impl Into<u64> for BitCoord {
 
 impl From<(u8, u8)> for BitCoord {
     fn from(file_and_rank: (u8, u8)) -> BitCoord {
+        let (file, rank) = file_and_rank;
+        BitCoord(1 << (rank * 8 + 7 - file))
+    }
+}
+
+impl From<(u32, u32)> for BitCoord {
+    fn from(file_and_rank: (u32, u32)) -> BitCoord {
         let (file, rank) = file_and_rank;
         BitCoord(1 << (rank * 8 + 7 - file))
     }

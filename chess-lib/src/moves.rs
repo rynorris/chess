@@ -1,5 +1,5 @@
 use crate::magic::{Line, MagicBitBoards};
-use crate::types::{BitBoard, BitCoord, Colour, Coordinate, GameState, IntoCoord, Move, Piece, Pieces, Square};
+use crate::types::{BitBoard, BitCoord, Colour, Coordinate, GameState, IntoCoord, Move, Piece, Pieces};
 
 pub fn legal_moves(state: &GameState, mbb: &MagicBitBoards) -> Vec<Move> {
     let colour = state.active_colour;
@@ -86,38 +86,38 @@ pub fn legal_moves(state: &GameState, mbb: &MagicBitBoards) -> Vec<Move> {
     for m in moves_without_suicidal_king {
         match m {
             Move::Normal(src, tgt) => {
-                match state.board[src.into_coord() as usize] {
-                    Square::Occupied(_, Piece::Pawn) => {
-                        // Expand pawn moves to last rank.
-                        // Don't have to check colours since pawns can't move backwards.
-                        if BitBoard(0xFF_00_00_00_00_00_00_FF) & tgt != BitBoard::EMPTY {
-                            moves.push(Move::Promotion(src, tgt, Piece::Queen));
-                            moves.push(Move::Promotion(src, tgt, Piece::Rook));
-                            moves.push(Move::Promotion(src, tgt, Piece::Bishop));
-                            moves.push(Move::Promotion(src, tgt, Piece::Knight));
-                        } else if state.en_passant.map(|ep| ep == tgt.into()).unwrap_or(false) {
-                            // Remove en-passant if it would leave the king in check.
-                            // Can't think of a better way to do this than just evaluating the new
-                            // board for checks.
-                            let mut new_pieces = side.pieces.clone();
-                            let mut new_other_pieces = other_side.pieces.clone();
-                            let taken_coord = match colour {
-                                Colour::White => Into::<BitCoord>::into(tgt) >> 8,
-                                Colour::Black => Into::<BitCoord>::into(tgt) << 8,
-                            };
+                let is_pawn = side.pieces.pawns & src != BitBoard::EMPTY;
+                if is_pawn {
+                    // Expand pawn moves to last rank.
+                    // Don't have to check colours since pawns can't move backwards.
+                    if BitBoard(0xFF_00_00_00_00_00_00_FF) & tgt != BitBoard::EMPTY {
+                        moves.push(Move::Promotion(src, tgt, Piece::Queen));
+                        moves.push(Move::Promotion(src, tgt, Piece::Rook));
+                        moves.push(Move::Promotion(src, tgt, Piece::Bishop));
+                        moves.push(Move::Promotion(src, tgt, Piece::Knight));
+                    } else if state.en_passant.map(|ep| ep == tgt.into()).unwrap_or(false) {
+                        // Remove en-passant if it would leave the king in check.
+                        // Can't think of a better way to do this than just evaluating the new
+                        // board for checks.
+                        let mut new_pieces = side.pieces.clone();
+                        let mut new_other_pieces = other_side.pieces.clone();
+                        let taken_coord = match colour {
+                            Colour::White => Into::<BitCoord>::into(tgt) >> 8,
+                            Colour::Black => Into::<BitCoord>::into(tgt) << 8,
+                        };
 
-                            new_pieces.put_piece(Piece::Pawn, tgt.into());
-                            new_pieces.clear_square(src.into());
-                            new_other_pieces.clear_square(taken_coord);
-                            let new_occupancy = new_pieces.all() | new_other_pieces.all();
-                            if !square_under_attack(new_occupancy, &new_other_pieces, BitCoord(new_pieces.king.0).into_coord(), colour, mbb) {
-                                moves.push(m);
-                            }
-                        } else {
+                        new_pieces.put_piece(Piece::Pawn, tgt.into());
+                        new_pieces.clear_square(src.into());
+                        new_other_pieces.clear_square(taken_coord);
+                        let new_occupancy = new_pieces.all() | new_other_pieces.all();
+                        if !square_under_attack(new_occupancy, &new_other_pieces, BitCoord(new_pieces.king.0).into_coord(), colour, mbb) {
                             moves.push(m);
                         }
-                    },
-                    _ => moves.push(m),
+                    } else {
+                        moves.push(m);
+                    }
+                } else {
+                    moves.push(m);
                 }
             },
             _ => panic!("Should only have normal moves at this stage"),
