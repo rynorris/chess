@@ -5,11 +5,11 @@ use crate::moves::legal_moves;
 use crate::types::{GameState};
 
 pub fn perft(state: &GameState, depth: u8, mbb: &MagicBitBoards) -> u64 {
-    if depth == 0 {
-        return 1;
-    } 
-
     let moves = legal_moves(state, &mbb);
+
+    if depth == 1 {
+        return moves.len() as u64;
+    }
 
     return moves.iter().map(|m| {
         let mut new_state = state.clone();

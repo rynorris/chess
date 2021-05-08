@@ -117,7 +117,6 @@ impl GameState {
         let kingside_rook: BitCoord = BitCoord(home_rank.0 & 0x01_00_00_00_00_00_00_01);
         let other_queenside_rook: BitCoord = BitCoord(other_home_rank.0 & 0x80_00_00_00_00_00_00_80);
         let other_kingside_rook: BitCoord = BitCoord(other_home_rank.0 & 0x01_00_00_00_00_00_00_01);
-        let initial_king: BitCoord = BitCoord(home_rank.0 & 0x08_00_00_00_00_00_00_08);
 
         let is_capture = other_side.pieces.all() & tgt != BitBoard::EMPTY;
         let is_pawn = piece == Piece::Pawn;
@@ -134,7 +133,8 @@ impl GameState {
             other_side.pieces.remove_piece(Piece::Pawn, taken_coord);
         }
 
-        if src == initial_king {
+        // King moves.
+        if piece == Piece::King {
             active_side.can_castle_queenside = false;
             active_side.can_castle_kingside = false;
         }
