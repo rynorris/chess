@@ -11,7 +11,7 @@ pub struct ChessBoard {
 }
 
 impl ChessBoard {
-    pub fn with_highlight(state: GameState, highlight: Move) -> ChessBoard {
+    pub fn _with_highlight(state: GameState, highlight: Move) -> ChessBoard {
         ChessBoard{ state, highlight_move: Some(highlight) }
     }
 }
