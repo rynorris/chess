@@ -67,6 +67,7 @@ fn main() -> Result<(), io::Error> {
             }).collect();
             lines.sort();
             lines.iter().for_each(|l| println!("{}", l));
+            println!("Total nodes: {}", counts.iter().map(|(_, v)| *v).sum::<u64>());
 
             let duration = after - before;
             println!("Took: {}s", duration.as_secs_f32());
