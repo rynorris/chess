@@ -13,28 +13,22 @@ pub fn legal_moves(state: &GameState, mbb: &MagicBitBoards) -> Vec<Move> {
     let active_occupancy = side.pieces.all();
     let other_occupancy = other_side.pieces.all();
     let occupancy = active_occupancy | other_occupancy;
-    let attacks = attacks_on_square(occupancy, &other_side.pieces, BitCoord(side.pieces.king.0), colour, mbb);
-
-    // If there are checks, this bitfield will contain the squares which stop ALL checks.
-    // i.e. The only legal moves are moves that move to these squares, or king moves.
-    let mut allowed_non_king_moves = BitBoard(0xFF_FF_FF_FF_FF_FF_FF_FF);
 
     // This is a map from a pinned piece, to the coordinates it can move to without
     // breaking the pin.
     // i.e. if a piece is in this map, it can ONLY move to the listed squares.
     let mut pins: [Option<BitBoard>; 64] = [None; 64];
-    let mut is_in_check = false;
-    attacks.into_iter().for_each(|atk| {
-        match atk {
-            Attack::Check(bs) => {
-                allowed_non_king_moves = allowed_non_king_moves & bs;
-                is_in_check = true;
-            },
-            Attack::Pin(c, bs) => {
-                pins[c.0.trailing_zeros() as usize] = Some(bs);
-            },
-        }
-    });
+
+    let allowed_non_king_moves = attacks_on_square(
+        &mut pins,
+        occupancy,
+        &other_side.pieces,
+        BitCoord(side.pieces.king.0),
+        colour,
+        mbb,
+    );
+
+    let is_in_check = allowed_non_king_moves != BitBoard(0xFF_FF_FF_FF_FF_FF_FF_FF);
 
     // Now get all moves disregarding restrictions.
     let mostly_legal_moves = side.pieces.all()
@@ -168,10 +162,7 @@ pub fn legal_moves(state: &GameState, mbb: &MagicBitBoards) -> Vec<Move> {
 }
 
 #[derive(Debug)]
-enum Attack {
-    Check(BitBoard),
-    Pin(BitCoord, BitBoard),
-}
+struct Pin(BitCoord, BitBoard);
 
 pub fn square_under_attack(occupancy: BitBoard, other_pieces: &Pieces, coord: BitCoord, colour: Colour, mbb: &MagicBitBoards) -> bool {
     let straight_atks = mbb.rook(coord).lookup(occupancy) & (other_pieces.rooks | other_pieces.queens);
@@ -205,8 +196,15 @@ pub fn square_under_attack(occupancy: BitBoard, other_pieces: &Pieces, coord: Bi
     false
 }
 
-fn attacks_on_square(occupancy: BitBoard, other_pieces: &Pieces, coord: BitCoord, colour: Colour, mbb: &MagicBitBoards) -> Vec<Attack> {
-    let mut attacks: Vec<Attack> = Vec::with_capacity(8);
+fn attacks_on_square(
+    pins: &mut [Option<BitBoard>; 64],
+    occupancy: BitBoard,
+    other_pieces: &Pieces,
+    coord: BitCoord,
+    colour: Colour,
+    mbb: &MagicBitBoards,
+) -> BitBoard {
+    let mut allowed_moves = BitBoard(0xFF_FF_FF_FF_FF_FF_FF_FF);
     let other_occupancy = other_pieces.all();
 
     // Straight line pieces.
@@ -218,8 +216,8 @@ fn attacks_on_square(occupancy: BitBoard, other_pieces: &Pieces, coord: BitCoord
             if (other_pieces.rooks | other_pieces.queens) & c != BitBoard::EMPTY {
                 // Attack is real.
                 match pin {
-                    None => attacks.push(Attack::Check(blocks)),
-                    Some(p) => attacks.push(Attack::Pin(p, blocks)),
+                    None => allowed_moves = allowed_moves & blocks,
+                    Some(p) => pins[p.0.trailing_zeros() as usize] = Some(blocks),
                 }
                 break;
             } else if other_occupancy & c != BitBoard::EMPTY {
@@ -246,8 +244,8 @@ fn attacks_on_square(occupancy: BitBoard, other_pieces: &Pieces, coord: BitCoord
             if (other_pieces.bishops | other_pieces.queens) & c != BitBoard::EMPTY {
                 // Attack is real.
                 match pin {
-                    None => attacks.push(Attack::Check(blocks)),
-                    Some(p) => attacks.push(Attack::Pin(p, blocks)),
+                    None => allowed_moves = allowed_moves & blocks,
+                    Some(p) => pins[p.0.trailing_zeros() as usize] = Some(blocks),
                 }
                 break;
             } else if other_occupancy & c != BitBoard::EMPTY {
@@ -268,22 +266,22 @@ fn attacks_on_square(occupancy: BitBoard, other_pieces: &Pieces, coord: BitCoord
     // Knights
     let knight_atks = mbb.knight(coord) & other_pieces.knights;
     if knight_atks != BitBoard::EMPTY {
-        attacks.push(Attack::Check(knight_atks));
+        allowed_moves = allowed_moves & knight_atks;
     }
 
     // King
     let king_atks = mbb.king(coord) & other_pieces.king;
     if king_atks != BitBoard::EMPTY {
-        attacks.push(Attack::Check(king_atks));
+        allowed_moves = allowed_moves & king_atks;
     }
 
     // Pawns
     let pawn_atks = pawn_attacks(coord, colour) & other_pieces.pawns;
     if pawn_atks != BitBoard::EMPTY {
-        attacks.push(Attack::Check(pawn_atks));
+        allowed_moves = allowed_moves & pawn_atks;
     }
 
-    attacks
+    allowed_moves
 }
 
 fn magic_piece_movement(
