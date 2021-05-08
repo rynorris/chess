@@ -24,6 +24,7 @@ struct Opts {
 enum SubCommand {
     Analyze(Analyze),
     Divide(Divide),
+    Magic(Magic),
 }
 
 #[derive(Clap)]
@@ -44,18 +45,21 @@ struct Analyze {
     simulations: u64,
 }
 
+#[derive(Clap)]
+struct Magic {
+    #[clap(short)]
+    piece: String,
+}
+
 fn main() -> Result<(), io::Error> {
     let opts: Opts = Opts::parse();
-    let stdout = io::stdout().into_raw_mode()?;
-    let mut stdin = termion::async_stdin().keys();
-    let backend = TermionBackend::new(stdout);
-    let mut terminal = Terminal::new(backend)?;
     match opts.subcmd {
         SubCommand::Divide(div) => {
             let state = chess_lib::fen::load_fen(&div.fen);
+            let mbb = chess_lib::magic::MagicBitBoards::default();
 
             let before = Instant::now();
-            let counts = chess_lib::perft::divide(&state, div.depth);
+            let counts = chess_lib::perft::divide(&state, div.depth, &mbb);
             let after = Instant::now();
 
             let mut lines: Vec<String> = counts.iter().map(|(k, v)| {
@@ -69,11 +73,16 @@ fn main() -> Result<(), io::Error> {
             Ok(())
         },
         SubCommand::Analyze(cmd) => {
+            let stdout = io::stdout().into_raw_mode()?;
+            let mut stdin = termion::async_stdin().keys();
+            let backend = TermionBackend::new(stdout);
+            let mut terminal = Terminal::new(backend)?;
             terminal.clear()?;
             let state = chess_lib::fen::load_fen(&cmd.fen);
-            let position_board = state.board.clone();
+            let draw_state = state.clone();
 
-            let mut monte = chess_ai::montecarlo::MCTS::new(state);
+            let chess = chess_ai::chess::Chess::new(state);
+            let mut monte = chess_ai::montecarlo::MCTS::new(chess);
 
             loop {
                 for _ in 0..cmd.simulations {
@@ -108,7 +117,7 @@ fn main() -> Result<(), io::Error> {
                         .bar_style(Style::default().fg(Color::Yellow))
                         .value_style(Style::default().fg(Color::Black).bg(Color::Yellow));
 
-                    let chess_board = board::ChessBoard::with_highlight(position_board.clone(), best_move);
+                    let chess_board = board::ChessBoard::with_highlight(draw_state.clone(), best_move);
 
                     f.render_widget(barchart, chunks[1]);
                     f.render_widget(chess_board, top_chunks[0]);
@@ -123,6 +132,51 @@ fn main() -> Result<(), io::Error> {
                     }
                 }
             }
+        },
+        SubCommand::Magic(cmd) => {
+            let (maskgen, movegen, target): (
+                fn (chess_lib::types::BitCoord) -> chess_lib::types::BitBoard,
+                fn (chess_lib::types::BitCoord, chess_lib::types::BitBoard) -> chess_lib::types::BitBoard,
+                usize,
+            ) = match cmd.piece.as_str() {
+                "rook" => (chess_lib::magic::rook_mask, chess_lib::magic::rook_moves, 2056),
+                "bishop" => (chess_lib::magic::bishop_mask, chess_lib::magic::bishop_moves, 128),
+                _ => panic!("Unknown piece: {}", cmd.piece),
+            };
+
+            println!("=== {} ===", cmd.piece);
+            let mut total_size = 0;
+            for c in 0..64 {
+                let mut best: u64 = 0;
+                let mut best_size: usize = usize::MAX;
+
+                let mut iterations = 0;
+                let coord = chess_lib::types::BitCoord(1 << c);
+                let mask = maskgen(coord);
+                let moves = chess_lib::magic::generate_moves(coord, mask, movegen);
+
+                while iterations < 10_000 && best_size > target {
+                    iterations += 1;
+                    let magic = rand::random::<u64>();
+                    match chess_lib::magic::Magic::generate(magic, mask, &moves) {
+                        Some(m) => {
+                            let size = m.size();
+                            if best_size == 0 || size < best_size {
+                                best_size = size;
+                                best = magic;
+                            }
+                        },
+                        None => (),
+                    }
+                }
+
+                println!("0x{:016x},  // {}[{}]", best, c, best_size);
+                total_size += best_size;
+            }
+
+            println!("Total size: {} bytes", total_size * 8);
+
+            Ok(())
         },
     }
 }

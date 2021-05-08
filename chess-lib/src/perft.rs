@@ -1,34 +1,35 @@
 use std::collections::HashMap;
 use crate::fmt::{format_move};
+use crate::magic::MagicBitBoards;
 use crate::moves::legal_moves;
 use crate::types::{GameState};
 
-pub fn perft(state: &GameState, depth: u8) -> u64 {
+pub fn perft(state: &GameState, depth: u8, mbb: &MagicBitBoards) -> u64 {
     if depth == 0 {
         return 1;
     } 
 
-    let moves = legal_moves(state);
+    let moves = legal_moves(state, &mbb);
 
     return moves.iter().map(|m| {
         let mut new_state = state.clone();
         new_state.make_move(*m);
-        perft(&new_state, depth - 1)
+        perft(&new_state, depth - 1, mbb)
     }).sum();
 }
 
-pub fn divide(state: &GameState, depth: u8) -> HashMap<String, u64> {
+pub fn divide(state: &GameState, depth: u8, mbb: &MagicBitBoards) -> HashMap<String, u64> {
     if depth < 1 {
         panic!("Divide requires depth at least 1");
     }
 
-    let moves = legal_moves(state);
+    let moves = legal_moves(state, &mbb);
 
     let results: Vec<(String, u64)> = moves.iter().map(|m| {
         let move_str = format_move(*m);
         let mut state_2 = state.clone();
         state_2.make_move(*m);
-        (move_str, perft(&state_2, depth - 1))
+        (move_str, perft(&state_2, depth - 1, mbb))
     }).collect();
     
     let mut counts: HashMap<String, u64> = HashMap::new();
@@ -42,6 +43,7 @@ pub fn divide(state: &GameState, depth: u8) -> HashMap<String, u64> {
 #[cfg(test)]
 mod tests {
     use crate::fen::{load_fen, STARTING_POSITION};
+    use crate::magic::MagicBitBoards;
     use crate::perft::{perft};
 
     macro_rules! perft_test {
@@ -49,7 +51,8 @@ mod tests {
             #[test]
             fn $name() {
                 let state = load_fen($position);
-                assert_eq!(perft(&state, $depth), $count);
+                let mbb = MagicBitBoards::default();
+                assert_eq!(perft(&state, $depth, &mbb), $count);
             }
         };
     }
@@ -192,38 +195,5 @@ mod tests {
         Starting at position "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8",
         at depth 4, the number of possible moves is: 2_103_487
     ];
-
-    use rand::seq::SliceRandom;
-    use crate::moves::legal_moves;
-    #[test]
-    fn debugging() {
-        let mut state = load_fen(STARTING_POSITION);
-
-        for _ in 0..=3 {
-            let moves = legal_moves(&state);
-            let m = moves.choose(&mut rand::thread_rng());
-            state.make_move(*m.unwrap());
-            crate::board::print_board(&state.board);
-            println!();
-        }
-
-        panic!("Fail the test");
-    }
-
-    #[test]
-    fn divide() {
-        let state = load_fen("r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P1RPP/R2Q2K1 b kq - 0 1");
-        //let mut state = load_fen(STARTING_POSITION);
-        //state.make_move(crate::types::Move::Normal(0x10, 0x22));
-        //state.make_move(crate::types::Move::Normal(0x36, 0x35));
-        crate::board::print_board(&state.board);
-        let counts = crate::perft::divide(&state, 1);
-        let mut lines: Vec<String> = counts.iter().map(|(k, v)| {
-            return format!("{}: {}", k, v);
-        }).collect();
-        lines.sort();
-        lines.iter().for_each(|l| println!("{}", l));
-        panic!("Fail the test");
-    }
     */
 }

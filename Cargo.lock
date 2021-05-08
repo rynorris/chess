@@ -50,6 +50,7 @@ dependencies = [
  "chess-ai",
  "chess-lib",
  "clap",
+ "rand",
  "termion",
  "tui",
 ]
@@ -58,6 +59,7 @@ dependencies = [
 name = "chess-lib"
 version = "0.1.0"
 dependencies = [
+ "derive_more",
  "rand",
 ]
 
@@ -88,6 +90,24 @@ checksum = "370f715b81112975b1b69db93e0b56ea4cd4e5002ac43b2da8474106a54096a1"
 dependencies = [
  "heck",
  "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "convert_case"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6245d59a3e82a7fc217c5828a6692dbc6dfb63a0c8c90495621f7b9d79704a0e"
+
+[[package]]
+name = "derive_more"
+version = "0.99.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f82b1b72f1263f214c0f823371768776c4f5841b942c9883aa8e5ec584fd0ba6"
+dependencies = [
+ "convert_case",
  "proc-macro2",
  "quote",
  "syn",

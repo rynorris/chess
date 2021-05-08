@@ -1,5 +1,4 @@
-use chess_lib::board::{coord, file, rank};
-use chess_lib::types::{Board, Colour, Move, Piece, Square};
+use chess_lib::types::{Colour, GameState, Move, Piece};
 use tui::buffer::Buffer;
 use tui::layout::Rect;
 use tui::style;
@@ -7,17 +6,13 @@ use tui::symbols::line;
 use tui::widgets::{Block, Borders, Widget};
 
 pub struct ChessBoard {
-    board: Board,
+    state: GameState,
     highlight_move: Option<Move>,
 }
 
 impl ChessBoard {
-    pub fn new(board: Board) -> ChessBoard {
-        ChessBoard{ board, highlight_move: None }
-    }
-
-    pub fn with_highlight(board: Board, highlight: Move) -> ChessBoard {
-        ChessBoard{ board, highlight_move: Some(highlight) }
+    pub fn with_highlight(state: GameState, highlight: Move) -> ChessBoard {
+        ChessBoard{ state, highlight_move: Some(highlight) }
     }
 }
 
@@ -115,10 +110,10 @@ impl Widget for ChessBoard {
         }
 
         // Draw pieces in the center of the squares.
-        for file in 0..8 {
-            for rank in 0..8 {
-                match self.board[coord(file, rank) as usize] {
-                    Square::Occupied(colour, piece) => {
+        for file in 0..8u32 {
+            for rank in 0..8u32 {
+                match self.state.find_piece((file, rank).into()) {
+                    Some((colour, piece)) => {
                         let symbol = symbol_for_piece(piece);
                         let colour = match colour {
                             Colour::White => style::Color::White,
@@ -128,24 +123,24 @@ impl Widget for ChessBoard {
                         let y = ((7 - rank) as u16 * (square_height + 1)) + (square_height / 2) + 1;
                         buf.get_mut(board_x + x, board_y + y).set_symbol(symbol).set_fg(colour);
                     },
-                    Square::Empty => (),
+                    None => (),
                 }
             }
         }
 
         // Highlight the given move.
         match self.highlight_move {
-            Some(Move::Normal(src, tgt)) => {
-                let mut f = file(src) as u16;
-                let mut r = rank(src) as u16;
+            Some(Move::Normal(_, src, tgt)) => {
+                let mut f = src.file() as u16;
+                let mut r = src.rank() as u16;
                 for x in (f * (square_width + 1) + 1)..((f + 1) * (square_width + 1)) {
                     for y in ((7 - r) * (square_height + 1) + 1)..((7 - r + 1) * (square_height + 1)) {
                         buf.get_mut(board_x + x, board_y + y).set_bg(style::Color::Yellow);
                     }
                 }
 
-                f = file(tgt) as u16;
-                r = rank(tgt) as u16;
+                f = tgt.file() as u16;
+                r = tgt.rank() as u16;
                 for x in (f * (square_width + 1) + 1)..((f + 1) * (square_width + 1)) {
                     for y in ((7 - r) * (square_height + 1) + 1)..((7 - r + 1) * (square_height + 1)) {
                         buf.get_mut(board_x + x, board_y + y).set_bg(style::Color::Yellow);

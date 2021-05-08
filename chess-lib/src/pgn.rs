@@ -1,8 +1,8 @@
 use std::fmt;
 use std::fmt::Display;
-use crate::board::{file, rank};
 use crate::fmt::{format_file, format_rank, format_piece};
-use crate::types::{Coordinate, GameState, Move, Piece, Square};
+use crate::magic::MagicBitBoards;
+use crate::types::{BitCoord, GameState, Move, Piece};
 
 pub enum PGNMove {
     Normal(PGNMoveData),
@@ -14,7 +14,7 @@ pub struct PGNMoveData {
     pub piece: Piece,
     pub disambiguate_file: Option<u8>,
     pub disambiguate_rank: Option<u8>,
-    pub to_square: Coordinate,
+    pub to_square: BitCoord,
     pub is_capture: bool,
     pub is_check: bool,
     pub is_checkmate: bool,
@@ -22,22 +22,17 @@ pub struct PGNMoveData {
 }
 
 impl PGNMove {
-    pub fn from_internal(state: &GameState, mv: Move) -> PGNMove {
+    pub fn from_internal(state: &GameState, mv: Move, mbb: &MagicBitBoards) -> PGNMove {
         let mut new_state = state.clone();
         new_state.make_move(mv);
 
-        let is_check = new_state.is_in_check();
+        let is_check = new_state.is_in_check(mbb);
 
         match mv {
-            Move::Normal(src, tgt) => {
-                let piece = match state.board[src as usize] {
-                    Square::Occupied(_, p) => p,
+            Move::Normal(piece, _, tgt) => {
+                let is_capture = match state.find_piece(tgt) {
+                    Some(_) => true,
                     _ => panic!("Source square is empty"),
-                };
-
-                let is_capture = match state.board[tgt as usize] {
-                    Square::Occupied(_, _) => true,
-                    _ => false,
                 };
 
                 PGNMove::Normal(PGNMoveData{
@@ -52,14 +47,14 @@ impl PGNMove {
                 })
             },
             Move::Promotion(src, tgt, promote_to) => {
-                let piece = match state.board[src as usize] {
-                    Square::Occupied(_, p) => p,
+                let piece = match state.find_piece(src) {
+                    Some((_, p)) => p,
                     _ => panic!("Source square is empty"),
                 };
 
-                let is_capture = match state.board[tgt as usize] {
-                    Square::Occupied(_, _) => true,
-                    _ => false,
+                let is_capture = match state.find_piece(tgt) {
+                    Some(_) => true,
+                    _ => panic!("Source square is empty"),
                 };
 
                 PGNMove::Normal(PGNMoveData{
@@ -90,8 +85,8 @@ impl PGNMove {
                     s.push('x');
                 }
 
-                s.push(format_file(file(data.to_square)));
-                s.push(format_rank(rank(data.to_square)));
+                s.push(format_file(data.to_square.file()));
+                s.push(format_rank(data.to_square.rank()));
 
                 match data.promote_to {
                     Some(p) => {
