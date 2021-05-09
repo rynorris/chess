@@ -6,6 +6,18 @@ pub struct GameState {
     pub black: SideState,
     pub en_passant: Option<BitCoord>,
     pub fifty_move_clock: u8,
+    pub zh: ZobristHash,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ZobristHash(pub u64);
+
+impl std::ops::BitXor<u64> for ZobristHash {
+    type Output = ZobristHash;
+
+    fn bitxor(self, rhs: u64) -> Self::Output {
+        ZobristHash(self.0 ^ rhs)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -234,7 +246,7 @@ impl Iterator for BitBoardIter {
 }
 
 // u64 with exactly 1 bit filled, representing a square.
-#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub struct BitCoord(pub u64);
 
 impl BitCoord {
@@ -313,7 +325,7 @@ impl From<u64> for BitCoord {
     }
 }
 
-#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub enum Move {
     Normal(Piece, BitCoord, BitCoord),
     Promotion(BitCoord, BitCoord, Piece),

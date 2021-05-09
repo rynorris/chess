@@ -80,13 +80,13 @@ pub fn load_fen(fen: &str) -> GameState {
         _ => Some(parse_coord(en_passant_field)),
     };
 
-    GameState{
+    GameState::new(
         active_colour,
         white,
         black,
         en_passant,
-        fifty_move_clock: 0,
-    }
+        0,
+    )
 }
 
 #[cfg(test)]

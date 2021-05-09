@@ -426,7 +426,8 @@ mod generated {
 
 #[cfg(test)]
 mod tests {
-    use rand::Rng;
+    use rand::prelude::*;
+    use rand_chacha::ChaCha8Rng;
     use crate::magic::*;
     use crate::types::{BitBoard};
 
@@ -460,7 +461,7 @@ mod tests {
 
     #[test]
     fn test_generate_rook() {
-        let mut rng = rand::thread_rng();
+        let mut rng = ChaCha8Rng::seed_from_u64(12345);
         // Test a few random configurations.
         for _ in 0..100 {
             let coord = BitCoord(1 << (rng.gen_range(0..64)));
@@ -491,7 +492,7 @@ mod tests {
 
     #[test]
     fn test_generated_rook_magic() {
-        let mut rng = rand::thread_rng();
+        let mut rng = ChaCha8Rng::seed_from_u64(12345);
         let magic_bbs = MagicBitBoards::default();
 
         for _ in 0..100_000 {
@@ -510,7 +511,7 @@ mod tests {
 
     #[test]
     fn test_generated_bishop_magic() {
-        let mut rng = rand::thread_rng();
+        let mut rng = ChaCha8Rng::seed_from_u64(12345);
         let magic_bbs = MagicBitBoards::default();
 
         for _ in 0..100_000 {

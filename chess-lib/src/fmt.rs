@@ -1,4 +1,35 @@
-use crate::types::{BitCoord, Move, Piece};
+use crate::types::{BitCoord, Colour, GameState, Move, Piece};
+
+impl std::fmt::Display for GameState {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        format_board(self, formatter)?;
+        Ok(())
+    }
+}
+
+pub fn format_board(state: &GameState, formatter: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+    writeln!(formatter, " ------------------------------- ")?;
+    for rank in (0..8u32).rev() {
+        write!(formatter, "|")?;
+        for file in 0..8u32 {
+            let coord: BitCoord = (file, rank).into();
+            write!(formatter, " ")?;
+            match state.find_piece(coord) {
+                Some((c, pc)) => {
+                    match c {
+                        Colour::White => write!(formatter, "{}", format_piece(pc))?,
+                        Colour::Black => write!(formatter, "{}", format_piece(pc).to_lowercase())?,
+                    }
+                },
+                None => write!(formatter, " ")?,
+            }
+            write!(formatter, " |")?;
+        }
+        writeln!(formatter)?;
+        writeln!(formatter, " ------------------------------- ")?;
+    }
+    Ok(())
+}
 
 pub fn format_piece(piece: Piece) -> char {
     match piece {
@@ -8,6 +39,20 @@ pub fn format_piece(piece: Piece) -> char {
         Piece::Bishop => 'B',
         Piece::Knight => 'N',
         Piece::Pawn => 'P',
+    }
+}
+
+impl std::fmt::Debug for Move {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        write!(formatter, "{}", format_move(*self))?;
+        Ok(())
+    }
+}
+
+impl std::fmt::Debug for BitCoord {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        write!(formatter, "{}", format_coord(*self))?;
+        Ok(())
     }
 }
 
