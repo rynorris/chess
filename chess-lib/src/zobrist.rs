@@ -12,6 +12,7 @@ pub struct ZobristHasher {
 }
 
 impl ZobristHasher {
+    const DEFAULT_SEED: u64 = 26355;
     const BLACK_TO_MOVE: usize = 12 * 64;
     const WHITE_QUEENSIDE: usize = 12 * 64 + 1;
     const WHITE_KINGSIDE: usize = 12 * 64 + 1;
@@ -21,7 +22,7 @@ impl ZobristHasher {
 
     pub fn default() -> &'static ZobristHasher {
         unsafe {
-            DEFAULT_HASHER.get_or_insert_with(|| Self::from_seed(12345))
+            DEFAULT_HASHER.get_or_insert_with(|| Self::from_seed(Self::DEFAULT_SEED))
         }
     }
 
@@ -146,10 +147,10 @@ mod tests {
     #[test]
     fn from_scratch() {
         // Tests that the hasher does something, and remains deterministic.
-        let hasher = ZobristHasher::from_seed(12345);
+        let hasher = ZobristHasher::default();
         let state = load_fen(STARTING_POSITION);
         let zh = hasher.hash(&state);
-        assert_eq!(zh, ZobristHash(0x165167d9c9a46d4b));
+        assert_eq!(zh, ZobristHash(0x5aba4aaed7d93fd));
     }
 }
 
