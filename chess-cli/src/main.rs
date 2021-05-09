@@ -69,7 +69,7 @@ fn main() -> Result<(), io::Error> {
             let state = chess_lib::fen::load_fen(&cmd.fen);
             let mbb = chess_lib::magic::MagicBitBoards::default();
             let chess = chess_ai::chess::Chess::new(state, &mbb);
-            let alphabeta = chess_ai::minimax::AlphaBeta::new(chess_ai::eval::evaluate);
+            let mut alphabeta = chess_ai::minimax::AlphaBeta::new(chess_ai::eval::evaluate);
 
             let mut results = alphabeta.evaluate(&chess, cmd.depth);
             results.sort_by(|(_, a), (_, b)| b.partial_cmp(a).unwrap());

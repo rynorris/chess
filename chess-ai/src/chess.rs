@@ -35,6 +35,10 @@ impl <'a> minimax::Game for Chess<'a> {
     fn legal_moves(&self) -> Vec<Self::Move> {
         legal_moves(&self.state, &self.mbb)
     }
+
+    fn zobrist_hash(&self) -> chess::ZobristHash {
+        self.state.zh
+    }
 }
 
 impl <'a> montecarlo::Game for Chess<'a> {
