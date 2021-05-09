@@ -6,6 +6,18 @@ pub struct GameState {
     pub black: SideState,
     pub en_passant: Option<BitCoord>,
     pub fifty_move_clock: u8,
+    pub zh: ZobristHash,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ZobristHash(pub u64);
+
+impl std::ops::BitXor<u64> for ZobristHash {
+    type Output = ZobristHash;
+
+    fn bitxor(self, rhs: u64) -> Self::Output {
+        ZobristHash(self.0 ^ rhs)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

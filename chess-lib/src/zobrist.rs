@@ -1,19 +1,10 @@
 use rand::prelude::*;
 use rand_chacha::ChaCha8Rng;
 
-use crate::types::{BitBoard, BitCoord, Colour, GameState, Piece};
+use crate::types::{BitBoard, BitCoord, Colour, GameState, Piece, ZobristHash};
 
+static mut DEFAULT_HASHER: Option<ZobristHasher> = None;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct ZobristHash(u64);
-
-impl std::ops::BitXor<u64> for ZobristHash {
-    type Output = ZobristHash;
-
-    fn bitxor(self, rhs: u64) -> Self::Output {
-        ZobristHash(self.0 ^ rhs)
-    }
-}
 
 #[derive(Clone, Copy, Debug)]
 pub struct ZobristHasher {
@@ -27,6 +18,12 @@ impl ZobristHasher {
     const BLACK_QUEENSIDE: usize = 12 * 64 + 2;
     const BLACK_KINGSIDE: usize = 12 * 64 + 3;
     const EN_PASSANT: usize = 12 * 64 + 4;
+
+    pub fn default() -> &'static ZobristHasher {
+        unsafe {
+            DEFAULT_HASHER.get_or_insert_with(|| Self::from_seed(12345))
+        }
+    }
 
     pub fn from_seed(seed: u64) -> ZobristHasher {
         let mut rng = ChaCha8Rng::seed_from_u64(seed);
