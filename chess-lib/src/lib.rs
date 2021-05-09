@@ -6,6 +6,7 @@ pub mod magic;
 pub mod moves;
 pub mod perft;
 pub mod pgn;
+pub mod tt;
 pub mod types;
 pub mod zobrist;
 
