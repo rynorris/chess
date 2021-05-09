@@ -28,7 +28,7 @@ impl GameState {
     pub fn make_move(&mut self, mv: Move) {
         let hasher = ZobristHasher::default();
 
-        self.fifty_move_clock += 1;
+        self.fifty_move_clock = self.fifty_move_clock.saturating_add(1);
 
         match mv {
             Move::Normal(piece, src, tgt) => {
@@ -219,35 +219,47 @@ impl GameState {
     }
 
     fn disable_active_queenside_castle(&mut self, hasher: &ZobristHasher) {
-        self.active_side_mut().can_castle_queenside = false;
-        self.zh = match self.active_colour {
-            Colour::White => hasher.toggle_white_queenside(self.zh),
-            Colour::Black => hasher.toggle_black_queenside(self.zh),
-        };
+        let side = self.active_side_mut();
+        if side.can_castle_queenside {
+            side.can_castle_queenside = false;
+            self.zh = match self.active_colour {
+                Colour::White => hasher.toggle_white_queenside(self.zh),
+                Colour::Black => hasher.toggle_black_queenside(self.zh),
+            };
+        }
     }
 
     fn disable_active_kingside_castle(&mut self, hasher: &ZobristHasher) {
-        self.active_side_mut().can_castle_kingside = false;
-        self.zh = match self.active_colour {
-            Colour::White => hasher.toggle_white_kingside(self.zh),
-            Colour::Black => hasher.toggle_black_kingside(self.zh),
-        };
+        let side = self.active_side_mut();
+        if side.can_castle_kingside {
+            side.can_castle_kingside = false;
+            self.zh = match self.active_colour {
+                Colour::White => hasher.toggle_white_kingside(self.zh),
+                Colour::Black => hasher.toggle_black_kingside(self.zh),
+            };
+        }
     }
 
     fn disable_other_queenside_castle(&mut self, hasher: &ZobristHasher) {
-        self.other_side_mut().can_castle_queenside = false;
-        self.zh = match self.active_colour {
-            Colour::White => hasher.toggle_black_queenside(self.zh),
-            Colour::Black => hasher.toggle_white_queenside(self.zh),
-        };
+        let side = self.other_side_mut();
+        if side.can_castle_queenside {
+            side.can_castle_queenside = false;
+            self.zh = match self.active_colour {
+                Colour::White => hasher.toggle_black_queenside(self.zh),
+                Colour::Black => hasher.toggle_white_queenside(self.zh),
+            };
+        }
     }
 
     fn disable_other_kingside_castle(&mut self, hasher: &ZobristHasher) {
-        self.other_side_mut().can_castle_kingside = false;
-        self.zh = match self.active_colour {
-            Colour::White => hasher.toggle_black_kingside(self.zh),
-            Colour::Black => hasher.toggle_white_kingside(self.zh),
-        };
+        let side = self.other_side_mut();
+        if side.can_castle_kingside {
+            side.can_castle_kingside = false;
+            self.zh = match self.active_colour {
+                Colour::White => hasher.toggle_black_kingside(self.zh),
+                Colour::Black => hasher.toggle_white_kingside(self.zh),
+            };
+        }
     }
 
     fn active_side_mut(&mut self) -> &mut SideState {

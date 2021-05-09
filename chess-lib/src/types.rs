@@ -246,7 +246,7 @@ impl Iterator for BitBoardIter {
 }
 
 // u64 with exactly 1 bit filled, representing a square.
-#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub struct BitCoord(pub u64);
 
 impl BitCoord {
@@ -325,7 +325,7 @@ impl From<u64> for BitCoord {
     }
 }
 
-#[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub enum Move {
     Normal(Piece, BitCoord, BitCoord),
     Promotion(BitCoord, BitCoord, Piece),

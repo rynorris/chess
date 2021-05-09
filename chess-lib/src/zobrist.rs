@@ -36,6 +36,16 @@ impl ZobristHasher {
         ZobristHasher{numbers}
     }
 
+    pub fn identify_diff(&self, lhs: ZobristHash, rhs: ZobristHash) -> Option<usize> {
+        let diff = lhs.0 ^ rhs.0;
+        for ix in 0..781 {
+            if diff == self.numbers[ix] {
+                return Some(ix);
+            }
+        }
+        None
+    }
+
     pub fn hash(&self, state: &GameState) -> ZobristHash {
         let mut zh = ZobristHash(0);
 
