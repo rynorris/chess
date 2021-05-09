@@ -35,6 +35,9 @@ struct Analyze {
 
     #[clap(short)]
     depth: u32,
+
+    #[clap(short)]
+    tt_bits: Option<u8>,
 }
 
 #[derive(Clap)]
@@ -69,13 +72,24 @@ fn main() -> Result<(), io::Error> {
             let state = chess_lib::fen::load_fen(&cmd.fen);
             let mbb = chess_lib::magic::MagicBitBoards::default();
             let chess = chess_ai::chess::Chess::new(state, &mbb);
-            let alphabeta = chess_ai::minimax::AlphaBeta::new(chess_ai::eval::evaluate);
+            let tt_size = 1 << cmd.tt_bits.unwrap_or(28);
+            let mut alphabeta = chess_ai::minimax::AlphaBeta::new(chess_ai::eval::evaluate, tt_size);
 
+            let before = Instant::now();
             let mut results = alphabeta.evaluate(&chess, cmd.depth);
+            let after = Instant::now();
+
             results.sort_by(|(_, a), (_, b)| b.partial_cmp(a).unwrap());
             results.into_iter().for_each(|(m, s)| {
                 println!("{}: {:.2}", chess_lib::fmt::format_move(m), (s as f64) / 100f64);
             });
+
+            let duration = after - before;
+            println!("Took: {}s", duration.as_secs_f32());
+
+            println!("TT fill rate: {:.2}", alphabeta.tt_stats().fill_rate());
+            println!("TT hit rate: {:.2}", alphabeta.tt_stats().hit_rate());
+            println!("TT collision rate: {:.2}", alphabeta.tt_stats().collision_rate());
 
             Ok(())
         },
