@@ -18,15 +18,28 @@ pub struct AlphaBeta<G> {
 
 #[derive(Clone, Copy)]
 struct CacheData {
+    depth: u32,
     score: i64,
 }
 
+fn prefer_higher(prev: CacheData, new: CacheData) -> tt::PolicyResult {
+    if prev.depth <= new.depth {
+        tt::PolicyResult::Keep
+    } else {
+        tt::PolicyResult::Replace
+    }
+}
+
 impl <G: Game> AlphaBeta<G> {
-    pub fn new(eval: Evaluator<G>) -> AlphaBeta<G> {
+    pub fn new(eval: Evaluator<G>, tt_size: usize) -> AlphaBeta<G> {
         AlphaBeta{
             eval,
-            tt: tt::TranspositionTable::new(1 << 25, tt::always_replace),
+            tt: tt::TranspositionTable::new(tt_size, prefer_higher),
         }
+    }
+
+    pub fn tt_stats(&self) -> &tt::TTStats {
+        self.tt.stats()
     }
 
     pub fn evaluate(&mut self, game: &G, depth: u32) -> Vec<(G::Move, i64)> {
@@ -47,33 +60,40 @@ impl <G: Game> AlphaBeta<G> {
         mut alpha: i64,
         beta: i64,
     ) -> i64 {
-        if depth == 0 {
-            return (self.eval)(game);
-        }
+        let zh = game.zobrist_hash();
 
-        for m in game.legal_moves().into_iter() {
-            let mut new_state = game.clone();
-            new_state.make_move(m);
-            
-            let zh = new_state.zobrist_hash();
-            let score = match self.tt.get(zh) {
-                Some(data) => data.score,
-                None => {
-                    let s = -self.eval_recursive(&new_state, depth - 1, -beta, -alpha);
-                    self.tt.insert(zh, CacheData{score: s});
+        let score = match self.tt.get(zh) {
+            Some(data) => data.score,
+            None => {
+                let mut s = alpha;
+
+                if depth == 0 {
+                    (self.eval)(game)
+                } else {
+                    for m in game.legal_moves().into_iter() {
+                        let mut new_state = game.clone();
+                        new_state.make_move(m);
+                        
+                        let eval = -self.eval_recursive(&new_state, depth - 1, -beta, -alpha);
+
+                        if eval >= beta {
+                            s = beta;
+                            break;
+                        }
+
+                        if eval > alpha {
+                            alpha = eval;
+                            s = eval;
+                        }
+                    }
+
+                    self.tt.insert(zh, CacheData{depth, score: s});
                     s
-                },
-            };
+                }
+            },
+        };
 
-            if score >= beta {
-                return beta;
-            }
-            if score > alpha {
-                alpha = score;
-            }
-        }
-
-        return alpha;
+        score
     }
 }
 

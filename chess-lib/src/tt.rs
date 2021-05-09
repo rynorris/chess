@@ -4,6 +4,7 @@ pub struct TranspositionTable<T: Clone + Copy> {
     shift: u32,
     table: Vec<Option<TTNode<T>>>,
     collision_policy: CollisionPolicy<T>,
+    stats: TTStats,
 }
 
 #[derive(Clone, Copy)]
@@ -15,6 +16,28 @@ pub struct TTNode<T: Clone + Copy> {
 impl <T: Clone + Copy> TTNode<T> {
     pub fn new(zh: ZobristHash, data: T) -> TTNode<T> {
         TTNode{zh, data}
+    }
+}
+
+pub struct TTStats {
+    hits: u64,
+    collisions: u64,
+    total: u64,
+    size: usize,
+    filled: usize,
+}
+
+impl TTStats {
+    pub fn hit_rate(&self) -> f64 {
+        (self.hits as f64) / (self.total as f64)
+    }
+
+    pub fn collision_rate(&self) -> f64 {
+        (self.collisions as f64) / (self.total as f64)
+    }
+
+    pub fn fill_rate(&self) -> f64 {
+        (self.filled as f64) / (self.size as f64)
     }
 }
 
@@ -41,29 +64,46 @@ impl <T: Clone + Copy> TranspositionTable<T> {
             shift: 64 - num_entries.trailing_zeros(),
             table: vec![None; num_entries],
             collision_policy,
+            stats: TTStats{
+                hits: 0,
+                collisions: 0,
+                total: 0,
+                size: num_entries,
+                filled: 0,
+            },
         }
     }
 
-    pub fn get(&self, zh: ZobristHash) -> Option<T> {
+    pub fn stats(&self) -> &TTStats {
+        &self.stats
+    }
+
+    pub fn get(&mut self, zh: ZobristHash) -> Option<T> {
+        self.stats.total += 1;
         self.table[self.index(zh)].and_then(|nd| {
             if nd.zh == zh {
+                self.stats.hits += 1;
                 Some(nd.data)
             } else {
+                self.stats.collisions += 1;
                 None
             }
         })
     }
 
     pub fn get_or_compute<F: FnOnce() -> T>(&mut self, zh: ZobristHash, compute: F) -> T {
+        self.stats.total += 1;
         let ix = self.index(zh);
         match self.table[ix].take() {
             Some(prev) => {
                 println!("{:?} =? {:?}  {}", prev.zh, zh, prev.zh == zh);
                 if prev.zh == zh {
+                    self.stats.hits += 1;
                     let data = prev.data;
                     self.table[ix].replace(prev);
                     data
                 } else {
+                    self.stats.collisions += 1;
                     let data = compute();
                     match (self.collision_policy)(prev.data, data) {
                         PolicyResult::Keep => self.table[ix].replace(prev),
@@ -73,6 +113,7 @@ impl <T: Clone + Copy> TranspositionTable<T> {
                 }
             },
             None => {
+                self.stats.filled += 1;
                 let data = compute();
                 self.table[ix].replace(TTNode::new(zh, data));
                 data
@@ -93,7 +134,10 @@ impl <T: Clone + Copy> TranspositionTable<T> {
                     }
                 }
             },
-            None => self.table[ix].replace(TTNode::new(zh, data)),
+            None => {
+                self.stats.filled += 1;
+                self.table[ix].replace(TTNode::new(zh, data))
+            },
         };
     }
 
