@@ -70,7 +70,20 @@ impl <G: Game> AlphaBeta<G> {
         } else {
             let zh = game.zobrist_hash();
 
-            let mut best_move = self.tt.get(zh).and_then(|data| data.best_move);
+            let cached_data = self.tt.get(zh);
+            let cached_score = cached_data.and_then(|data| {
+                if data.depth >= depth {
+                    Some(data.score)
+                } else {
+                    None
+                }
+            });
+
+            if cached_score.is_some() {
+                return cached_score.unwrap();
+            }
+
+            let mut best_move = cached_data.and_then(|data| data.best_move);
             let mut s = alpha;
             let mut moves = game.legal_moves();
             moves.sort_unstable_by_key(|m| if best_move == Some(*m) { 0 } else { 1 });
