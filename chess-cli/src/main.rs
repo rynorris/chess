@@ -76,13 +76,10 @@ fn main() -> Result<(), io::Error> {
             let mut alphabeta = chess_ai::minimax::AlphaBeta::new(chess_ai::eval::evaluate, tt_size);
 
             let before = Instant::now();
-            let mut results = alphabeta.evaluate(&chess, cmd.depth);
+            let (mv, score) = alphabeta.evaluate(&chess, cmd.depth);
             let after = Instant::now();
 
-            results.sort_by(|(_, a), (_, b)| b.partial_cmp(a).unwrap());
-            results.into_iter().for_each(|(m, s)| {
-                println!("{}: {:.2}", chess_lib::fmt::format_move(m), (s as f64) / 100f64);
-            });
+            println!("{}: {:.2}", chess_lib::fmt::format_move(mv), (score as f64) / 100f64);
 
             let duration = after - before;
             println!("Took: {}s", duration.as_secs_f32());

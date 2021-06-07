@@ -44,21 +44,14 @@ impl <G: Game> AlphaBeta<G> {
         self.tt.stats()
     }
 
-    pub fn evaluate(&mut self, game: &G, depth: u32) -> Vec<(G::Move, i64)> {
+    pub fn evaluate(&mut self, game: &G, depth: u32) -> (G::Move, i64) {
         for d in 0..=depth {
             self.eval_recursive(&game, d, i64::MIN + 1, i64::MAX - 1);
         }
 
         // Resconstruct the results from the TT.
-        println!("Best move: {:?}", self.tt.get(game.zobrist_hash()).unwrap().best_move);
-        game.legal_moves().into_iter()
-            .map(|m| {
-                let mut new_state = game.clone();
-                new_state.make_move(m);
-                let data = self.tt.get(new_state.zobrist_hash()).expect("Top level move not present in TT after evaluation");
-                (m, -data.score)
-            })
-            .collect()
+        let root_data = self.tt.get(game.zobrist_hash()).expect("Root node not present in TT after evaluation");
+        (root_data.best_move.unwrap(), root_data.score)
     }
 
     fn eval_recursive(
