@@ -79,12 +79,15 @@ impl <G: Game> AlphaBeta<G> {
                 return cached_score.unwrap();
             }
 
-            let mut best_move = cached_data.and_then(|data| data.best_move);
+            let cached_best_move = cached_data.and_then(|data| data.best_move);
+            let mut best_move: Option<G::Move> = None;
             let mut s = alpha;
-            let mut moves = game.legal_moves();
-            moves.sort_unstable_by_key(|m| if best_move == Some(*m) { 0 } else { 1 });
+            let moves = game.legal_moves();
 
-            for m in moves.into_iter() {
+            let best_move_first = cached_best_move.into_iter()
+                .chain(moves.into_iter().filter(|m| cached_best_move != Some(*m)));
+
+            for m in best_move_first {
                 let mut new_state = game.clone();
                 new_state.make_move(m);
                 
