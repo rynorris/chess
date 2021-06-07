@@ -8,9 +8,7 @@ pub fn evaluate(chess: &Chess) -> i64 {
         Colour::Black => (&chess.state.black, &chess.state.white),
     };
 
-    let check_penalty: i64 = if chess.state.is_in_check(&chess.mbb) { -1000 } else { 0 };
-
-    count_material(&active_side.pieces) - count_material(&other_side.pieces) + check_penalty
+    count_material(&active_side.pieces) - count_material(&other_side.pieces)
 }
 
 fn count_material(pieces: &Pieces) -> i64 {
@@ -26,5 +24,5 @@ fn count_material(pieces: &Pieces) -> i64 {
 }
 
 fn count_piece(bb: BitBoard, value: i64) -> i64 {
-    bb.iter().map(|_| value).sum()
+    (bb.count() as i64) * value
 }

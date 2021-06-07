@@ -218,6 +218,10 @@ impl BitBoard {
     pub fn iter(self) -> BitBoardIter {
         BitBoardIter{bb: self, c: BitCoord(1)}
     }
+
+    pub fn count(self) -> u32 {
+        return self.0.count_ones();
+    }
 }
 
 pub struct BitBoardIter {
