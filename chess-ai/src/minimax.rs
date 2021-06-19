@@ -1,8 +1,9 @@
+use std::fmt::Debug;
 use chess_lib::types::ZobristHash;
 use chess_lib::tt;
 
 pub trait Game : Clone {
-    type Move : Copy;
+    type Move : Copy + Eq + Debug;
 
     fn make_move(&mut self, mv: Self::Move);
     fn legal_moves(&self) -> Vec<Self::Move>;
@@ -11,22 +12,23 @@ pub trait Game : Clone {
 
 type Evaluator<T> = fn (&T) -> i64;
 
-pub struct AlphaBeta<G> {
+pub struct AlphaBeta<G : Game> {
     eval: Evaluator<G>,
-    tt: tt::TranspositionTable<CacheData>,
+    tt: tt::TranspositionTable<CacheData<G::Move>>,
 }
 
 #[derive(Clone, Copy)]
-struct CacheData {
+struct CacheData<M : Copy> {
     depth: u32,
     score: i64,
+    best_move: Option<M>,
 }
 
-fn prefer_higher(prev: CacheData, new: CacheData) -> tt::PolicyResult {
-    if prev.depth <= new.depth {
-        tt::PolicyResult::Keep
-    } else {
+fn prefer_higher<M : Copy>(prev: CacheData<M>, new: CacheData<M>) -> tt::PolicyResult {
+    if prev.depth < new.depth {
         tt::PolicyResult::Replace
+    } else {
+        tt::PolicyResult::Keep
     }
 }
 
@@ -42,15 +44,14 @@ impl <G: Game> AlphaBeta<G> {
         self.tt.stats()
     }
 
-    pub fn evaluate(&mut self, game: &G, depth: u32) -> Vec<(G::Move, i64)> {
-        game.legal_moves()
-            .into_iter()
-            .map(|m| {
-                let mut new_state = game.clone();
-                new_state.make_move(m);
-                (m, -self.eval_recursive(&new_state, depth - 1, i64::MIN + 1, i64::MAX - 1))
-            })
-            .collect()
+    pub fn evaluate(&mut self, game: &G, depth: u32) -> (G::Move, i64) {
+        for d in 0..=depth {
+            self.eval_recursive(&game, d, i64::MIN + 1, i64::MAX - 1);
+        }
+
+        // Resconstruct the results from the TT.
+        let root_data = self.tt.get(game.zobrist_hash()).expect("Root node not present in TT after evaluation");
+        (root_data.best_move.unwrap(), root_data.score)
     }
 
     fn eval_recursive(
@@ -60,40 +61,54 @@ impl <G: Game> AlphaBeta<G> {
         mut alpha: i64,
         beta: i64,
     ) -> i64 {
-        let zh = game.zobrist_hash();
+        if depth == 0 {
+            (self.eval)(game)
+        } else {
+            let zh = game.zobrist_hash();
 
-        let score = match self.tt.get(zh) {
-            Some(data) => data.score,
-            None => {
-                let mut s = alpha;
-
-                if depth == 0 {
-                    (self.eval)(game)
+            let cached_data = self.tt.get(zh);
+            let cached_score = cached_data.and_then(|data| {
+                if data.depth >= depth {
+                    Some(data.score)
                 } else {
-                    for m in game.legal_moves().into_iter() {
-                        let mut new_state = game.clone();
-                        new_state.make_move(m);
-                        
-                        let eval = -self.eval_recursive(&new_state, depth - 1, -beta, -alpha);
-
-                        if eval >= beta {
-                            s = beta;
-                            break;
-                        }
-
-                        if eval > alpha {
-                            alpha = eval;
-                            s = eval;
-                        }
-                    }
-
-                    self.tt.insert(zh, CacheData{depth, score: s});
-                    s
+                    None
                 }
-            },
-        };
+            });
 
-        score
+            if cached_score.is_some() {
+                return cached_score.unwrap();
+            }
+
+            let cached_best_move = cached_data.and_then(|data| data.best_move);
+            let mut best_move: Option<G::Move> = None;
+            let mut s = alpha;
+            let moves = game.legal_moves();
+
+            let best_move_first = cached_best_move.into_iter()
+                .chain(moves.into_iter().filter(|m| cached_best_move != Some(*m)));
+
+            for m in best_move_first {
+                let mut new_state = game.clone();
+                new_state.make_move(m);
+                
+                let eval = -self.eval_recursive(&new_state, depth - 1, -beta, -alpha);
+
+                if eval >= beta {
+                    s = beta;
+                    best_move = Some(m);
+                    break;
+                }
+
+                if eval > alpha {
+                    alpha = eval;
+                    s = eval;
+                    best_move = Some(m);
+                }
+            }
+
+            self.tt.insert(zh, CacheData{depth, score: s, best_move: best_move });
+            s
+        }
     }
 }
 

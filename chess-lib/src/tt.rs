@@ -125,13 +125,9 @@ impl <T: Clone + Copy> TranspositionTable<T> {
         let ix = self.index(zh);
         match self.table[ix].take() {
             Some(prev) => {
-                if prev.zh == zh {
-                    self.table[ix].replace(prev)
-                } else {
-                    match (self.collision_policy)(prev.data, data) {
-                        PolicyResult::Keep => self.table[ix].replace(prev),
-                        PolicyResult::Replace => self.table[ix].replace(TTNode::new(zh, data)),
-                    }
+                match (self.collision_policy)(prev.data, data) {
+                    PolicyResult::Keep => self.table[ix].replace(prev),
+                    PolicyResult::Replace => self.table[ix].replace(TTNode::new(zh, data)),
                 }
             },
             None => {
