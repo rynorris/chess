@@ -128,6 +128,9 @@ fn main() -> Result<(), io::Error> {
             println!("=== {} (iterations={}, workers={}) ===", cmd.piece, cmd.iterations.unwrap_or(0), cmd.workers);
             let mut iteration = 0;
 
+            // Start off conservative.
+            let mut batch_size = 100;
+
             loop {
                 iteration += 1;
                 let iteration_start = Instant::now();
@@ -139,9 +142,9 @@ fn main() -> Result<(), io::Error> {
                         let mask = maskgen(coord);
                         let moves = chess_lib::magic::generate_moves(coord, mask, movegen);
 
-                        for _ in 0..100 {
+                        for _ in 0..batch_size {
                             let magic = rand::random::<u64>();
-                            match chess_lib::magic::Magic::generate(magic, mask, &moves) {
+                            match chess_lib::magic::Magic::generate(magic, mask, &moves, best.size() - 1) {
                                 Some(m) => {
                                     let size = m.size();
                                     if size < best.size() {
@@ -164,9 +167,11 @@ fn main() -> Result<(), io::Error> {
                 });
 
                 let duration = iteration_start.elapsed();
-                let per_second = (64 * 100 * 1000) / duration.as_millis();
+                let per_second = (64 * batch_size * 1000) / duration.as_millis();
 
-                println!("[#{}, took {:.1}s, {} magics/s] Total size: {} bytes", iteration, (duration.as_millis() as f64) / 1000.0, per_second, bests.iter().map(|m| m.size()).sum::<usize>() * 8);
+                println!("[#{}, {} cycles, took {:.1}s, {} magics/s] Total size: {} bytes", iteration, batch_size, (duration.as_millis() as f64) / 1000.0, per_second, bests.iter().map(|m| m.size()).sum::<usize>() * 8);
+
+                batch_size = (per_second * 10) / 64;
 
                 if iteration == cmd.iterations.unwrap_or(0) {
                     break;

@@ -28,13 +28,15 @@ impl MagicBitBoards {
                     rook_magic[coord.0.trailing_zeros() as usize],
                     rook_mask(coord),
                     &rook_moves_map,
-            ).unwrap());
+                    16384,
+            ).expect(&format!("Rook magic {} is valid", coord.0.trailing_zeros())));
 
             bishops.push(Magic::generate(
                     bishop_magic[coord.0.trailing_zeros() as usize],
                     bishop_mask(coord),
                     &bishop_moves_map,
-            ).unwrap());
+                    1024,
+            ).expect(&format!("Bishop magic {} is valid", coord.0.trailing_zeros())));
 
             kings.push(king_moves(coord));
             knights.push(knight_moves(coord));
@@ -94,15 +96,23 @@ impl Magic {
         magic: u64,
         mask: BitBoard,
         all_moves: &HashMap<BitBoard, BitBoard>,
+        max_size: usize,
     ) -> Option<Magic> {
         // 2^10 = 1024 possible masked occupancies.
         // Perfect hashing would fit in 256 cells.
         let occupancies = boards_for_mask(mask);
 
-        for size in 8..=16 {
-            let shift = 64 - size;
-            let mut table = vec![BitBoard::EMPTY; 1 << size];
-            let mut filled = vec![false; 1 << size];
+        let mut width: u32 = 4;
+        loop {
+            let shift = 64 - width;
+            let size: usize = 1 << width;
+
+            if size > max_size {
+                break;
+            }
+
+            let mut table = vec![BitBoard::EMPTY; size];
+            let mut filled = vec![false; size];
 
             let mut success = true;
             for o in occupancies.iter() {
@@ -123,6 +133,8 @@ impl Magic {
             if success {
                 return Some(Magic{table, mask, magic, shift});
             }
+
+            width += 1;
         }
 
         None
@@ -296,136 +308,136 @@ fn boards_for_mask(mask: BitBoard) -> Vec<BitBoard> {
 mod generated {
     pub const ROOK_MAGIC: [u64; 64] = [
         0xfc19fe6fec2cf537,  // 0[16384]
-        0xeacaa62d652357e7,  // 1[8192]
+        0xdd4bff3eb7476d18,  // 1[4096]
         0xe4cb01f391928b96,  // 2[8192]
         0x671c700f8e25251b,  // 3[8192]
-        0x430cb929d5f8c5cf,  // 4[16384]
-        0x79400708fb3f7a67,  // 5[16384]
+        0xaca716f7f2c66cec,  // 4[8192]
+        0xa53ff6ffb7f57603,  // 5[8192]
         0xacc00dc593418156,  // 6[4096]
-        0x8d12c734ebcecec2,  // 7[16384]
+        0x5000959a495452d5,  // 7[8192]
         0x936dffeb83ca00fc,  // 8[4096]
         0x07cdae127e71dd1a,  // 9[2048]
-        0x8b3e021c9f262b0e,  // 10[4096]
-        0xd91d05ee6b0fa113,  // 11[4096]
-        0x67d236a3c6a1e2a3,  // 12[4096]
-        0x1c53206a99114ed5,  // 13[4096]
+        0x5405736e66d8905a,  // 10[2048]
+        0x9cd21642f7a2bfc0,  // 11[2048]
+        0xced60e538fa9f17d,  // 12[2048]
+        0xc77c8db95d4825eb,  // 13[2048]
         0x1e51b2f9cc05b305,  // 14[2048]
-        0xb31488012998eb4e,  // 15[4096]
+        0xa07a000184030e62,  // 15[2048]
         0x563be107f08c4dff,  // 16[4096]
         0x715e8d1733ce20b7,  // 17[2048]
-        0x1697e7f7d11da04d,  // 18[4096]
-        0x7611ee11997a354e,  // 19[4096]
-        0xa2b2296bc0b35149,  // 20[4096]
-        0x4cd92b03e0424e87,  // 21[4096]
+        0x78f58b8e37fed5aa,  // 18[2048]
+        0x32cdcd20a50d20e3,  // 19[2048]
+        0x159f50f0f10e8361,  // 20[2048]
+        0x67067200090600aa,  // 21[2048]
         0x254b888726442aa0,  // 22[2048]
         0xd88c26fe9c2c6516,  // 23[4096]
         0x7d7da4e38bc5e6cd,  // 24[4096]
         0xaf590eba201956f1,  // 25[2048]
-        0x07c72b1f75f95f2f,  // 26[4096]
-        0x5771db16d2d3bb4f,  // 27[4096]
-        0x38b5f99b58e6515a,  // 28[4096]
-        0x8a72dca523400e31,  // 29[4096]
-        0x264c7a58bff8f45d,  // 30[2048]
+        0x3e1bf7823af9bdef,  // 26[2048]
+        0x177119e1c71718d7,  // 27[2048]
+        0xb42c768a6fd72590,  // 28[2048]
+        0x41bd7a7d82d0db0b,  // 29[2048]
+        0xcccfa814002aa710,  // 30[1024]
         0xadf924cff49d5f5c,  // 31[4096]
         0xf0d69c97632ecb07,  // 32[4096]
         0xb90760c5b515e61c,  // 33[2048]
-        0x346951ee8ca0d39b,  // 34[4096]
-        0x61435d185ee10616,  // 35[4096]
-        0x8aa360af7c27f512,  // 36[4096]
-        0x77609c69819bd8eb,  // 37[4096]
+        0xe0dcd44ef10f8402,  // 34[2048]
+        0x268408f883f8b000,  // 35[2048]
+        0x45b585a05f4f4f7c,  // 36[2048]
+        0x94292c7dfab7ed48,  // 37[2048]
         0x71568bc15ebb66a3,  // 38[2048]
-        0x1386aeda72da63b5,  // 39[4096]
+        0x7e0ea8a72e0005a4,  // 39[2048]
         0xeade55a59f364336,  // 40[4096]
-        0x899288f8694e97eb,  // 41[4096]
-        0x0dcb50c586597110,  // 42[4096]
-        0x90de7c97919b4943,  // 43[4096]
-        0x35452ef808c0f1ee,  // 44[4096]
-        0x5e34044a59f577d2,  // 45[4096]
+        0xc6fe9a9f9d5e0e9b,  // 41[2048]
+        0xe1b8d0a5cc2f59e3,  // 42[2048]
+        0xc1612a7fdd20022a,  // 43[2048]
+        0x2fe7405dcce8bf20,  // 44[2048]
+        0xefb5ffdbaeddfff0,  // 45[2048]
         0xdfa39102fe335b9b,  // 46[2048]
         0x5f8486f8cdd68837,  // 47[4096]
         0x98f5474730719abf,  // 48[4096]
         0xab2e8a092fc1f15c,  // 49[2048]
-        0xfc6740cb73e47507,  // 50[4096]
+        0x29ef5020814028a0,  // 50[2048]
         0x5fb9bd36f86e79bd,  // 51[2048]
-        0xf88bb4ef15e277f0,  // 52[4096]
+        0x38dd435e50d731e5,  // 52[2048]
         0x2127ff4bc8415110,  // 53[2048]
         0xb4a7965983831f3c,  // 54[2048]
         0xf06468ad013996c0,  // 55[4096]
         0xa2f999725d5ebf7a,  // 56[8192]
-        0x64ad9ba3331931ce,  // 57[4096]
-        0xa55b0586001c71be,  // 58[4096]
+        0x1bfffce87017d1ca,  // 57[2048]
+        0xa565ffb3e00d80be,  // 58[2048]
         0x70890bc3c1d892ce,  // 59[4096]
-        0x35838af8effa74f2,  // 60[8192]
-        0x514886983a434ff3,  // 61[8192]
+        0x37df1a00342e2f3e,  // 60[4096]
+        0x15fa2465c6f1ffe2,  // 61[4096]
         0x6e6c44b573523dcc,  // 62[4096]
-        0x037f859713fc9e2a,  // 63[8192]
+        0xe7ce270084182c36,  // 63[4096]
     ];
 
     pub const BISHOP_MAGIC: [u64; 64] = [
-        0x2b37884ab6607661,  // 0[256]
-        0xf2cd889ec6a9c81e,  // 1[256]
-        0xabee7df5cb3794c2,  // 2[256]
-        0xf9878d4b4658fc3d,  // 3[256]
-        0x1c6ae81d1e1dba94,  // 4[256]
-        0x53e7464af1763b00,  // 5[256]
-        0x36ce5b74d02f55f8,  // 6[256]
-        0xde1b9fbdb734217b,  // 7[256]
-        0x0d32b4a42ce5d95d,  // 8[256]
-        0xad03884b003e73b2,  // 9[256]
-        0xe163799d724b7108,  // 10[256]
-        0x7e2316b38260826b,  // 11[256]
-        0x7e0168bee116276b,  // 12[256]
-        0x898ea1a6f5ef1c26,  // 13[256]
-        0x0e40ee533af10702,  // 14[256]
-        0xffd5b2405e084c3c,  // 15[256]
-        0x90029c75a3c9936a,  // 16[256]
-        0x390c41d646750ff8,  // 17[256]
-        0xf64cfec68c44afb1,  // 18[256]
-        0xaef8045cf83ec705,  // 19[256]
-        0x3c4ba1aa8d1685ca,  // 20[256]
-        0x96a6ffa7fbeb0b5c,  // 21[256]
-        0xaa0fbf0b6559a284,  // 22[256]
-        0xc19ba18c3b136e8e,  // 23[256]
-        0x849678e0857b8678,  // 24[256]
-        0xe92851b524c3e5ef,  // 25[256]
-        0x3295a5aff4fc17f8,  // 26[256]
+        0xc9e0b32f7efb37ff,  // 0[64]
+        0xbcc5efc5767ff79a,  // 1[16]
+        0xbdf044b22bf68725,  // 2[32]
+        0xcf7825efcd929f29,  // 3[32]
+        0x798c0c206fafba0b,  // 4[32]
+        0xdd220a8ffcf4be24,  // 5[32]
+        0x9c50a28a537f9f27,  // 6[16]
+        0x378bba1d8ef5ffe6,  // 7[32]
+        0x85faadad9b78efff,  // 8[16]
+        0x3be609029afd97f6,  // 9[16]
+        0xf9fdd869ffce07ce,  // 10[32]
+        0x942a3114058191bf,  // 11[32]
+        0xd9b87c1420629674,  // 12[32]
+        0xe238de02301c578f,  // 13[32]
+        0x04644b251bf87f8a,  // 14[16]
+        0x44e2b6d5376dfec6,  // 15[16]
+        0x86107b60600e779c,  // 16[32]
+        0xe1e61142652177fd,  // 17[32]
+        0x52c802b00e85a209,  // 18[128]
+        0xf878010904530057,  // 19[128]
+        0xb6a700e090402215,  // 20[128]
+        0x1396001a4113a032,  // 21[128]
+        0xed17054a14ff60dc,  // 22[32]
+        0x4907041dcb27b00c,  // 23[32]
+        0x7810c0237618b1aa,  // 24[32]
+        0xf1ff5e89387e3c06,  // 25[32]
+        0x382b7002480687e1,  // 26[128]
         0x718da08cd046c6b6,  // 27[1024]
-        0xf7f213fff0ca213c,  // 28[2048]
-        0xd74a79f63fac428e,  // 29[256]
-        0x9f445422f60d14f6,  // 30[256]
-        0x7625be0598a36418,  // 31[256]
-        0x80f8604a44fb3cc6,  // 32[256]
-        0xfb2165468c7a2cd2,  // 33[256]
-        0x7ef3aeadfb5bfa12,  // 34[256]
-        0xef6f54cd3b3b5288,  // 35[2048]
-        0xf97442f0e01b501c,  // 36[2048]
-        0xfcd9217b22a84107,  // 37[256]
-        0x2f4fd5406390fa74,  // 38[256]
-        0x5f3d0112dadbbe30,  // 39[256]
-        0x571f504b69b5cb85,  // 40[256]
-        0x9e61752b04a1734c,  // 41[256]
-        0x473e4ce818e6ece1,  // 42[256]
-        0xa58c2367f762fb27,  // 43[256]
-        0xaab79cfb1cad195e,  // 44[256]
-        0xc9e3898417ab70a9,  // 45[256]
-        0x32b4e5582b435c5b,  // 46[256]
-        0xea24b2f93e5f0089,  // 47[256]
-        0x8d9a150b5bcc8476,  // 48[256]
-        0xcbcd01d98964983c,  // 49[256]
-        0xfe60a7831a6e4146,  // 50[256]
-        0x6ab7f3b27d215dd6,  // 51[256]
-        0xed282405a3b8f28d,  // 52[256]
-        0xe79cc209fd70b7a3,  // 53[256]
-        0x55f0eb1fb2fa323e,  // 54[256]
-        0xed3e4e85a0b0888b,  // 55[256]
-        0x949810abb19c47fc,  // 56[256]
-        0x6487dcba652389ba,  // 57[256]
-        0x1b9780785f4f714a,  // 58[256]
-        0x11d0a56b4cbaa168,  // 59[256]
-        0xa424afb235fc83c4,  // 60[256]
-        0xd1769edf01cf0094,  // 61[256]
-        0x5029a8a9e99cbe54,  // 62[256]
-        0x7fc97500c80410b4,  // 63[256]
+        0xd3af7877c05e2061,  // 28[1024]
+        0xbd7f85004e00d206,  // 29[128]
+        0xdfa50c183452180e,  // 30[32]
+        0x1496034cf4e10825,  // 31[32]
+        0xf0a920a036d0349f,  // 32[32]
+        0x74762fb0ab170610,  // 33[32]
+        0xe5d1b24805d00783,  // 34[128]
+        0x58cdffaa517fea00,  // 35[1024]
+        0x78a8ee38e3954c79,  // 36[1024]
+        0x3a4d0b5200b5010d,  // 37[128]
+        0x0484158a09c1980d,  // 38[32]
+        0x436f2606823a04ce,  // 39[32]
+        0xce3dc3dba34cc051,  // 40[32]
+        0x98aff3e5953b8829,  // 41[32]
+        0x9523ff9710015901,  // 42[128]
+        0x7a14ad6018009d05,  // 43[128]
+        0x1be07a4602013c10,  // 44[128]
+        0x06fe22054d020201,  // 45[128]
+        0xf57ee9cce33a0942,  // 46[32]
+        0x741fb5826e5d0a00,  // 47[16]
+        0x84bff89913cd4d69,  // 48[16]
+        0x108ffc98c4cd2780,  // 49[16]
+        0x66b9fff61ef084b3,  // 50[32]
+        0xe5ff84ac20881d3a,  // 51[32]
+        0x86b5dfd06e0217c3,  // 52[32]
+        0xe9bc3d202bf3c905,  // 53[32]
+        0xc9ff7491dcd8cf7e,  // 54[16]
+        0xa0bfe9f514524727,  // 55[16]
+        0xbf47fbeeaa7939fe,  // 56[64]
+        0x508157fe864b7938,  // 57[16]
+        0x2bb52b32ea011010,  // 58[32]
+        0x168cd40c87085806,  // 59[32]
+        0xa7e927aca8306c0d,  // 60[32]
+        0xfcf6d6a8710f2a01,  // 61[32]
+        0x57ed7fb519d8a0ae,  // 62[16]
+        0xadffd1e9127f66b4,  // 63[32]
     ];
 }
 
@@ -474,7 +486,7 @@ mod tests {
             let magic: Magic = {
                 let mut mm: Option<Magic> = None;
                 while mm.is_none() {
-                    match Magic::generate(rand::random::<u64>(), rook_mask(coord), &moves) {
+                    match Magic::generate(rand::random::<u64>(), rook_mask(coord), &moves, 16384) {
                         Some(m) => {
                             mm = Some(m);
                         },
