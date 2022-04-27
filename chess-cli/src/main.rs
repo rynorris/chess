@@ -1,6 +1,9 @@
 use std::io;
 use std::time::Instant;
+
 use clap::{AppSettings, Clap};
+use crossbeam::channel;
+use threadpool::ThreadPool;
 
 mod board;
 
@@ -45,14 +48,11 @@ struct Magic {
     #[clap(short, long)]
     piece: String,
 
-    #[clap(short, long, default_value = "1_000")]
-    iterations: u32,
-
     #[clap(short, long)]
-    target: Option<usize>,
+    iterations: Option<u32>,
 
-    #[clap(short, long)]
-    continuous: bool,
+    #[clap(short, long, default_value = "1")]
+    workers: usize,
 }
 
 fn main() -> Result<(), io::Error> {
@@ -101,18 +101,16 @@ fn main() -> Result<(), io::Error> {
         },
         SubCommand::Magic(cmd) => {
             let default_bbs = chess_lib::magic::MagicBitBoards::default();
-            let (maskgen, movegen, target): (
+            let (maskgen, movegen): (
                 fn (chess_lib::types::BitCoord) -> chess_lib::types::BitBoard,
                 fn (chess_lib::types::BitCoord, chess_lib::types::BitBoard) -> chess_lib::types::BitBoard,
-                usize,
             ) = match cmd.piece.as_str() {
-                "rook" => (chess_lib::magic::rook_mask, chess_lib::magic::rook_moves, 2056),
-                "bishop" => (chess_lib::magic::bishop_mask, chess_lib::magic::bishop_moves, 128),
+                "rook" => (chess_lib::magic::rook_mask, chess_lib::magic::rook_moves),
+                "bishop" => (chess_lib::magic::bishop_mask, chess_lib::magic::bishop_moves),
                 _ => panic!("Unknown piece: {}", cmd.piece),
             };
 
-            let mut bests: Vec<u64> = Vec::with_capacity(64);
-            let mut best_sizes: Vec<usize> = Vec::with_capacity(64);
+            let mut bests: Vec<chess_lib::magic::Magic> = Vec::with_capacity(64);
             for c in 0..64 {
                 let coord = chess_lib::types::BitCoord(1 << c);
                 let magic = match cmd.piece.as_str() {
@@ -120,56 +118,60 @@ fn main() -> Result<(), io::Error> {
                     "bishop" => default_bbs.bishop(coord),
                     _ => panic!("Unknown piece: {}", cmd.piece),
                 };
-                bests.push(magic.magic());
-                best_sizes.push(magic.size());
+                bests.push(magic.clone());
             }
 
-            println!("=== {} ({}, iterations={}, target={}) ===", cmd.piece, if cmd.continuous { "continuous" } else { "single" }, cmd.iterations, cmd.target.unwrap_or(target));
+            let (result_tx, result_rx) = channel::unbounded::<(usize, chess_lib::magic::Magic)>();
+
+            let pool = ThreadPool::new(cmd.workers);
+
+            println!("=== {} (iterations={}, workers={}) ===", cmd.piece, cmd.iterations.unwrap_or(0), cmd.workers);
+            let mut iteration = 0;
+
             loop {
+                iteration += 1;
+                let iteration_start = Instant::now();
                 for c in 0..64 {
-                    let mut iterations = 0;
-                    let mut improved = false;
-                    let coord = chess_lib::types::BitCoord(1 << c);
-                    let mask = maskgen(coord);
-                    let moves = chess_lib::magic::generate_moves(coord, mask, movegen);
+                    let best = bests[c].clone();
+                    let tx = result_tx.clone();
+                    pool.execute(move|| {
+                        let coord = chess_lib::types::BitCoord(1 << c);
+                        let mask = maskgen(coord);
+                        let moves = chess_lib::magic::generate_moves(coord, mask, movegen);
 
-                    let default = match cmd.piece.as_str() {
-                        "rook" => default_bbs.rook(coord),
-                        "bishop" => default_bbs.bishop(coord),
-                        _ => panic!("Unknown piece: {}", cmd.piece),
-                    };
-
-                    while iterations < cmd.iterations && best_sizes[c] > cmd.target.unwrap_or(target) {
-                        iterations += 1;
-                        let magic = rand::random::<u64>();
-                        match chess_lib::magic::Magic::generate(magic, mask, &moves) {
-                            Some(m) => {
-                                let size = m.size();
-                                if size < best_sizes[c] {
-                                    bests[c] = magic;
-                                    best_sizes[c] = size;
-                                    improved = true;
-                                }
-                            },
-                            None => (),
+                        for _ in 0..100 {
+                            let magic = rand::random::<u64>();
+                            match chess_lib::magic::Magic::generate(magic, mask, &moves) {
+                                Some(m) => {
+                                    let size = m.size();
+                                    if size < best.size() {
+                                        tx.send((c, m)).expect("able to report results");
+                                        return;
+                                    }
+                                },
+                                None => (),
+                            }
                         }
-                    }
-
-                    if improved {
-                        println!("0x{:016x},  // {}[{}] !! (was {})", bests[c], c, best_sizes[c], default.size());
-                    } else if !cmd.continuous {
-                        println!("0x{:016x},  // {}[{}]", bests[c], c, best_sizes[c]);
-                    }
+                        tx.send((c, best)).expect("able to report results");
+                    });
                 }
 
-                if cmd.continuous {
-                    println!("Total size: {} bytes", best_sizes.iter().sum::<usize>() * 8);
-                } else {
+                result_rx.iter().take(64).for_each(|(c, m)| {
+                    if m.size() < bests[c].size() {
+                        println!("0x{:016x},  // {}[{}] !! (was {})", m.magic(), c, m.size(), bests[c].size());
+                        bests[c] = m;
+                    }
+                });
+
+                let duration = iteration_start.elapsed();
+                let per_second = (64 * 100 * 1000) / duration.as_millis();
+
+                println!("[#{}, took {:.1}s, {} magics/s] Total size: {} bytes", iteration, (duration.as_millis() as f64) / 1000.0, per_second, bests.iter().map(|m| m.size()).sum::<usize>() * 8);
+
+                if iteration == cmd.iterations.unwrap_or(0) {
                     break;
                 }
             }
-
-            println!("Total size: {} bytes", best_sizes.iter().sum::<usize>() * 8);
 
             Ok(())
         },
