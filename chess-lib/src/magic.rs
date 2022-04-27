@@ -31,7 +31,7 @@ impl MagicBitBoards {
                     rook_mask(coord),
                     &rook_moves_map,
                     &mut boards_cache,
-                    8192,
+                    1 << 13,
             ).expect(&format!("Rook magic {} is valid", coord.0.trailing_zeros())));
 
             bishops.push(Magic::generate(
@@ -39,7 +39,7 @@ impl MagicBitBoards {
                     bishop_mask(coord),
                     &bishop_moves_map,
                     &mut boards_cache,
-                    1024,
+                    1 << 10,
             ).expect(&format!("Bishop magic {} is valid", coord.0.trailing_zeros())));
 
             kings.push(king_moves(coord));
@@ -497,7 +497,7 @@ mod tests {
             let magic: Magic = {
                 let mut mm: Option<Magic> = None;
                 while mm.is_none() {
-                    match Magic::generate(rand::random::<u64>(), rook_mask(coord), &moves, &mut boards_cache, 8192) {
+                    match Magic::generate(rand::random::<u64>(), rook_mask(coord), &moves, &mut boards_cache, 1 << 15) {
                         Some(m) => {
                             mm = Some(m);
                         },
