@@ -21,29 +21,38 @@ enum SubCommand {
 
 #[derive(Clap)]
 struct Divide {
-    #[clap(short)]
+    #[clap(short, long)]
     fen: String,
 
-    #[clap(short)]
+    #[clap(short, long)]
     depth: u8,
 }
 
 #[derive(Clap)]
 struct Analyze {
-    #[clap(short)]
+    #[clap(short, long)]
     fen: String,
 
-    #[clap(short)]
+    #[clap(short, long)]
     depth: u32,
 
-    #[clap(short)]
+    #[clap(short, long)]
     tt_bits: Option<u8>,
 }
 
 #[derive(Clap)]
 struct Magic {
-    #[clap(short)]
+    #[clap(short, long)]
     piece: String,
+
+    #[clap(short, long, default_value = "1_000")]
+    iterations: u32,
+
+    #[clap(short, long)]
+    target: Option<usize>,
+
+    #[clap(short, long)]
+    continuous: bool,
 }
 
 fn main() -> Result<(), io::Error> {
@@ -91,6 +100,7 @@ fn main() -> Result<(), io::Error> {
             Ok(())
         },
         SubCommand::Magic(cmd) => {
+            let default_bbs = chess_lib::magic::MagicBitBoards::default();
             let (maskgen, movegen, target): (
                 fn (chess_lib::types::BitCoord) -> chess_lib::types::BitBoard,
                 fn (chess_lib::types::BitCoord, chess_lib::types::BitBoard) -> chess_lib::types::BitBoard,
@@ -101,37 +111,65 @@ fn main() -> Result<(), io::Error> {
                 _ => panic!("Unknown piece: {}", cmd.piece),
             };
 
-            println!("=== {} ===", cmd.piece);
-            let mut total_size = 0;
+            let mut bests: Vec<u64> = Vec::with_capacity(64);
+            let mut best_sizes: Vec<usize> = Vec::with_capacity(64);
             for c in 0..64 {
-                let mut best: u64 = 0;
-                let mut best_size: usize = usize::MAX;
-
-                let mut iterations = 0;
                 let coord = chess_lib::types::BitCoord(1 << c);
-                let mask = maskgen(coord);
-                let moves = chess_lib::magic::generate_moves(coord, mask, movegen);
+                let magic = match cmd.piece.as_str() {
+                    "rook" => default_bbs.rook(coord),
+                    "bishop" => default_bbs.bishop(coord),
+                    _ => panic!("Unknown piece: {}", cmd.piece),
+                };
+                bests.push(magic.magic());
+                best_sizes.push(magic.size());
+            }
 
-                while iterations < 10_000 && best_size > target {
-                    iterations += 1;
-                    let magic = rand::random::<u64>();
-                    match chess_lib::magic::Magic::generate(magic, mask, &moves) {
-                        Some(m) => {
-                            let size = m.size();
-                            if best_size == 0 || size < best_size {
-                                best_size = size;
-                                best = magic;
-                            }
-                        },
-                        None => (),
+            println!("=== {} ({}, iterations={}, target={}) ===", cmd.piece, if cmd.continuous { "continuous" } else { "single" }, cmd.iterations, cmd.target.unwrap_or(target));
+            loop {
+                for c in 0..64 {
+                    let mut iterations = 0;
+                    let mut improved = false;
+                    let coord = chess_lib::types::BitCoord(1 << c);
+                    let mask = maskgen(coord);
+                    let moves = chess_lib::magic::generate_moves(coord, mask, movegen);
+
+                    let default = match cmd.piece.as_str() {
+                        "rook" => default_bbs.rook(coord),
+                        "bishop" => default_bbs.bishop(coord),
+                        _ => panic!("Unknown piece: {}", cmd.piece),
+                    };
+
+                    while iterations < cmd.iterations && best_sizes[c] > cmd.target.unwrap_or(target) {
+                        iterations += 1;
+                        let magic = rand::random::<u64>();
+                        match chess_lib::magic::Magic::generate(magic, mask, &moves) {
+                            Some(m) => {
+                                let size = m.size();
+                                if size < best_sizes[c] {
+                                    bests[c] = magic;
+                                    best_sizes[c] = size;
+                                    improved = true;
+                                }
+                            },
+                            None => (),
+                        }
+                    }
+
+                    if improved {
+                        println!("0x{:016x},  // {}[{}] !! (was {})", bests[c], c, best_sizes[c], default.size());
+                    } else if !cmd.continuous {
+                        println!("0x{:016x},  // {}[{}]", bests[c], c, best_sizes[c]);
                     }
                 }
 
-                println!("0x{:016x},  // {}[{}]", best, c, best_size);
-                total_size += best_size;
+                if cmd.continuous {
+                    println!("Total size: {} bytes", best_sizes.iter().sum::<usize>() * 8);
+                } else {
+                    break;
+                }
             }
 
-            println!("Total size: {} bytes", total_size * 8);
+            println!("Total size: {} bytes", best_sizes.iter().sum::<usize>() * 8);
 
             Ok(())
         },
