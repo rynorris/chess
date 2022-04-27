@@ -1,4 +1,5 @@
 use std::io;
+use std::fs;
 use std::collections::HashMap;
 use std::time::Instant;
 
@@ -54,6 +55,9 @@ struct Magic {
 
     #[clap(short, long, default_value = "1")]
     workers: usize,
+
+    #[clap(short, long)]
+    sourcefile: Option<String>,
 }
 
 fn main() -> Result<(), io::Error> {
@@ -126,6 +130,8 @@ fn main() -> Result<(), io::Error> {
 
             let pool = ThreadPool::new(cmd.workers);
 
+            let sourcefile = cmd.sourcefile;
+
             println!("=== {} (iterations={}, workers={}) ===", cmd.piece, cmd.iterations.unwrap_or(0), cmd.workers);
             let mut iteration = 0;
 
@@ -163,7 +169,11 @@ fn main() -> Result<(), io::Error> {
 
                 result_rx.iter().take(64).for_each(|(c, m)| {
                     if m.size() < bests[c].size() {
-                        println!("0x{:016x},  // {}[{}] !! (was {})", m.magic(), c, m.size(), bests[c].size());
+                        println!("(0x{:016x}, {}),  // {}[{}] !! (was {})", m.magic(), 64 - m.shift(), c, m.size(), bests[c].size());
+
+                        if sourcefile.is_some() {
+                            update_magic(sourcefile.clone().unwrap(), c, &bests[c], &m);
+                        }
                         bests[c] = m;
                     }
                 });
@@ -183,4 +193,21 @@ fn main() -> Result<(), io::Error> {
             Ok(())
         },
     }
+}
+
+fn update_magic(sourcefile: String, c: usize, prev: &chess_lib::magic::Magic, new: &chess_lib::magic::Magic) {
+    let text = fs::read_to_string(&sourcefile).expect("Failed to read magic source file");
+
+    let edited: String = text
+        .split("\n")
+        .map(|l| {
+            if l.contains(&format!("0x{:016x}", prev.magic())) {
+                format!("(0x{:016x}, {}),  // {}[{}]", new.magic(), 64 - new.shift(), c, new.size())
+            } else {
+                l.to_owned()
+            }
+        })
+        .fold(String::new(), |a, b| a + "\n" + &b);
+
+    fs::write(&sourcefile, edited).expect("Failed to write magic source file");
 }
