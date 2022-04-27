@@ -202,7 +202,7 @@ fn update_magic(sourcefile: String, c: usize, prev: &chess_lib::magic::Magic, ne
         .split("\n")
         .map(|l| {
             if l.contains(&format!("0x{:016x}", prev.magic())) {
-                format!("(0x{:016x}, {}),  // {}[{}]", new.magic(), 64 - new.shift(), c, new.size())
+                format!("        (0x{:016x}, {}),  // {}[{}]", new.magic(), 64 - new.shift(), c, new.size())
             } else {
                 l.to_owned()
             }
