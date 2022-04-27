@@ -1,4 +1,5 @@
 use std::io;
+use std::collections::HashMap;
 use std::time::Instant;
 
 use clap::{AppSettings, Clap};
@@ -141,10 +142,11 @@ fn main() -> Result<(), io::Error> {
                         let coord = chess_lib::types::BitCoord(1 << c);
                         let mask = maskgen(coord);
                         let moves = chess_lib::magic::generate_moves(coord, mask, movegen);
+                        let mut boards_cache: HashMap<chess_lib::types::BitBoard, Vec<chess_lib::types::BitBoard>> = HashMap::new();
 
                         for _ in 0..batch_size {
                             let magic = rand::random::<u64>();
-                            match chess_lib::magic::Magic::generate(magic, mask, &moves, best.size() - 1) {
+                            match chess_lib::magic::Magic::generate(magic, mask, &moves, &mut boards_cache, best.size() - 1) {
                                 Some(m) => {
                                     let size = m.size();
                                     if size < best.size() {

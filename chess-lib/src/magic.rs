@@ -19,6 +19,8 @@ impl MagicBitBoards {
         let mut bishops: Vec<Magic> = Vec::with_capacity(64);
         let mut kings: Vec<BitBoard> = Vec::with_capacity(64);
         let mut knights: Vec<BitBoard> = Vec::with_capacity(64);
+        let mut boards_cache: HashMap<BitBoard, Vec<BitBoard>> = HashMap::new();
+
         for c in 0..64 {
             let coord = BitCoord(1 << c);
             let rook_moves_map = generate_moves(coord, rook_mask(coord), rook_moves);
@@ -28,13 +30,15 @@ impl MagicBitBoards {
                     rook_magic[coord.0.trailing_zeros() as usize],
                     rook_mask(coord),
                     &rook_moves_map,
-                    16384,
+                    &mut boards_cache,
+                    8192,
             ).expect(&format!("Rook magic {} is valid", coord.0.trailing_zeros())));
 
             bishops.push(Magic::generate(
                     bishop_magic[coord.0.trailing_zeros() as usize],
                     bishop_mask(coord),
                     &bishop_moves_map,
+                    &mut boards_cache,
                     1024,
             ).expect(&format!("Bishop magic {} is valid", coord.0.trailing_zeros())));
 
@@ -96,11 +100,16 @@ impl Magic {
         magic: u64,
         mask: BitBoard,
         all_moves: &HashMap<BitBoard, BitBoard>,
+        boards_cache: &mut HashMap<BitBoard, Vec<BitBoard>>,
         max_size: usize,
     ) -> Option<Magic> {
         // 2^10 = 1024 possible masked occupancies.
         // Perfect hashing would fit in 256 cells.
-        let occupancies = boards_for_mask(mask);
+        if !boards_cache.contains_key(&mask) {
+            boards_cache.insert(mask, boards_for_mask(mask));
+        }
+
+        let occupancies = boards_cache.get(&mask).unwrap();
 
         let mut width: u32 = 4;
         loop {
@@ -307,12 +316,12 @@ fn boards_for_mask(mask: BitBoard) -> Vec<BitBoard> {
 
 mod generated {
     pub const ROOK_MAGIC: [u64; 64] = [
-        0xfc19fe6fec2cf537,  // 0[16384]
+        0xb76a2db6b51796a8,  // 0[8192]
         0xdd4bff3eb7476d18,  // 1[4096]
-        0xe4cb01f391928b96,  // 2[8192]
-        0x671c700f8e25251b,  // 3[8192]
+        0xd6b9fe01f4dd9d9a,  // 2[4096]
+        0x57f0009727effb29,  // 3[4096]
         0xaca716f7f2c66cec,  // 4[8192]
-        0xa53ff6ffb7f57603,  // 5[8192]
+        0x34e00f121491fbf8,  // 5[4096]
         0xacc00dc593418156,  // 6[4096]
         0x5000959a495452d5,  // 7[8192]
         0x936dffeb83ca00fc,  // 8[4096]
@@ -330,7 +339,7 @@ mod generated {
         0x159f50f0f10e8361,  // 20[2048]
         0x67067200090600aa,  // 21[2048]
         0x254b888726442aa0,  // 22[2048]
-        0xd88c26fe9c2c6516,  // 23[4096]
+        0x4e1072001581d70c,  // 23[2048]
         0x7d7da4e38bc5e6cd,  // 24[4096]
         0xaf590eba201956f1,  // 25[2048]
         0x3e1bf7823af9bdef,  // 26[2048]
@@ -338,7 +347,7 @@ mod generated {
         0xb42c768a6fd72590,  // 28[2048]
         0x41bd7a7d82d0db0b,  // 29[2048]
         0xcccfa814002aa710,  // 30[1024]
-        0xadf924cff49d5f5c,  // 31[4096]
+        0x5bf2f65a0000e6ac,  // 31[2048]
         0xf0d69c97632ecb07,  // 32[4096]
         0xb90760c5b515e61c,  // 33[2048]
         0xe0dcd44ef10f8402,  // 34[2048]
@@ -347,29 +356,29 @@ mod generated {
         0x94292c7dfab7ed48,  // 37[2048]
         0x71568bc15ebb66a3,  // 38[2048]
         0x7e0ea8a72e0005a4,  // 39[2048]
-        0xeade55a59f364336,  // 40[4096]
+        0x6ba0894003a68006,  // 40[2048] 
         0xc6fe9a9f9d5e0e9b,  // 41[2048]
         0xe1b8d0a5cc2f59e3,  // 42[2048]
         0xc1612a7fdd20022a,  // 43[2048]
         0x2fe7405dcce8bf20,  // 44[2048]
         0xefb5ffdbaeddfff0,  // 45[2048]
         0xdfa39102fe335b9b,  // 46[2048]
-        0x5f8486f8cdd68837,  // 47[4096]
+        0x9a723b2b745a0004,  // 47[2048]
         0x98f5474730719abf,  // 48[4096]
-        0xab2e8a092fc1f15c,  // 49[2048]
+        0xf67fffba7e7e12f0,  // 49[1024]
         0x29ef5020814028a0,  // 50[2048]
-        0x5fb9bd36f86e79bd,  // 51[2048]
+        0x840ba100f0014b00,  // 51[1024]
         0x38dd435e50d731e5,  // 52[2048]
         0x2127ff4bc8415110,  // 53[2048]
         0xb4a7965983831f3c,  // 54[2048]
-        0xf06468ad013996c0,  // 55[4096]
-        0xa2f999725d5ebf7a,  // 56[8192]
+        0xaa18e84117940600,  // 55[2048]
+        0x66fffee689ce02fe,  // 56[4096]
         0x1bfffce87017d1ca,  // 57[2048]
         0xa565ffb3e00d80be,  // 58[2048]
-        0x70890bc3c1d892ce,  // 59[4096]
+        0x947fff083092008e,  // 59[2048]
         0x37df1a00342e2f3e,  // 60[4096]
         0x15fa2465c6f1ffe2,  // 61[4096]
-        0x6e6c44b573523dcc,  // 62[4096]
+        0x56bc6b9002183114,  // 62[2048]
         0xe7ce270084182c36,  // 63[4096]
     ];
 
@@ -483,10 +492,12 @@ mod tests {
         for _ in 0..100 {
             let coord = BitCoord(1 << (rng.gen_range(0..64)));
             let moves = generate_moves(coord, rook_mask(coord), rook_moves);
+            let mut boards_cache: HashMap<BitBoard, Vec<BitBoard>> = HashMap::new();
+
             let magic: Magic = {
                 let mut mm: Option<Magic> = None;
                 while mm.is_none() {
-                    match Magic::generate(rand::random::<u64>(), rook_mask(coord), &moves, 16384) {
+                    match Magic::generate(rand::random::<u64>(), rook_mask(coord), &moves, &mut boards_cache, 8192) {
                         Some(m) => {
                             mm = Some(m);
                         },
@@ -495,6 +506,7 @@ mod tests {
                 }
                 mm.unwrap()
             };
+
             let board = BitBoard(rand::random::<u64>());
             let actual_moves = rook_moves(coord, board);
             let magic_moves = magic.lookup(board);
