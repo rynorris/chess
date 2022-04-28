@@ -1,6 +1,3 @@
-
-
-
 use std::collections::HashMap;
 use crate::types::{BitBoard, BitCoord};
 
@@ -130,22 +127,19 @@ impl Magic {
             }
 
             let mut table = vec![BitBoard::EMPTY; size];
-            let mut filled = vec![false; size];
 
             let mut success = true;
             for o in occupancies.iter() {
                 let index = Magic::index(*o, mask, magic, shift);
                 let moves = all_moves.get(o).expect("Missing some moves");
-                if !filled[index] {
-                    table[index] = *moves;
-                    filled[index] = true;
-                    continue;
-                }
 
-                if table[index] != *moves {
+                let current = table[index];
+                if current != BitBoard::EMPTY && current != *moves {
                     success = false;
                     break;
                 }
+
+                table[index] = *moves;
             }
 
             if success {
@@ -326,14 +320,14 @@ fn boards_for_mask(mask: BitBoard) -> Vec<BitBoard> {
 mod generated {
     pub const ROOK_MAGIC: [(u64, u32); 64] = [
         (0xb76a2db6b51796a8, 13),  // 0[8192]
-        (0xdd4bff3eb7476d18, 12),  // 1[4096]
+        (0x78c003e007100142, 11),  // 1[2048]
         (0xd6b9fe01f4dd9d9a, 12),  // 2[4096]
         (0x57f0009727effb29, 12),  // 3[4096]
         (0xecfff1a1c80de300, 12),  // 4[4096]
         (0x34e00f121491fbf8, 12),  // 5[4096]
         (0xacc00dc593418156, 12),  // 6[4096]
         (0x5000959a495452d5, 13),  // 7[8192]
-        (0x936dffeb83ca00fc, 12),  // 8[4096]
+        (0x71ba80076182400c, 11),  // 8[2048]
         (0x9daf002740008705, 10),  // 9[1024]
         (0x5405736e66d8905a, 11),  // 10[2048]
         (0x9cd21642f7a2bfc0, 11),  // 11[2048]
@@ -351,14 +345,14 @@ mod generated {
         (0x4e1072001581d70c, 11),  // 23[2048]
         (0x7d7da4e38bc5e6cd, 12),  // 24[4096]
         (0xaf590eba201956f1, 11),  // 25[2048]
-        (0x3e1bf7823af9bdef, 11),  // 26[2048]
+        (0xde6bb30100200541, 10),  // 26[1024]
         (0x177119e1c71718d7, 11),  // 27[2048]
         (0xb42c768a6fd72590, 11),  // 28[2048]
         (0x41bd7a7d82d0db0b, 11),  // 29[2048]
         (0xcccfa814002aa710, 10),  // 30[1024]
         (0x5bf2f65a0000e6ac, 11),  // 31[2048]
         (0xf0d69c97632ecb07, 12),  // 32[4096]
-        (0xb90760c5b515e61c, 11),  // 33[2048]
+        (0x1a750980c2002203, 10),  // 33[1024]
         (0xe0dcd44ef10f8402, 11),  // 34[2048]
         (0x268408f883f8b000, 11),  // 35[2048]
         (0x45b585a05f4f4f7c, 11),  // 36[2048]
@@ -368,7 +362,7 @@ mod generated {
         (0x6ba0894003a68006, 11),  // 40[2048] 
         (0xc6fe9a9f9d5e0e9b, 11),  // 41[2048]
         (0xe1b8d0a5cc2f59e3, 11),  // 42[2048]
-        (0xc1612a7fdd20022a, 11),  // 43[2048]
+        (0xc62fc20060da0010, 10),  // 43[1024]
         (0x2fe7405dcce8bf20, 11),  // 44[2048]
         (0xefb5ffdbaeddfff0, 11),  // 45[2048]
         (0x4009e50a106c0058, 10),  // 46[1024]
@@ -379,14 +373,14 @@ mod generated {
         (0x840ba100f0014b00, 10),  // 51[1024]
         (0x95ffff77515d5200, 10),  // 52[1024]
         (0x2127ff4bc8415110, 11),  // 53[2048]
-        (0xb4a7965983831f3c, 11),  // 54[2048]
+        (0xe7eaf01207b81c00, 10),  // 54[1024]
         (0xaa18e84117940600, 11),  // 55[2048]
         (0x66fffee689ce02fe, 12),  // 56[4096]
         (0x1bfffce87017d1ca, 11),  // 57[2048]
         (0xa565ffb3e00d80be, 11),  // 58[2048]
         (0x947fff083092008e, 11),  // 59[2048]
-        (0x37df1a00342e2f3e, 12),  // 60[4096]
-        (0x15fa2465c6f1ffe2, 12),  // 61[4096]
+        (0x353fffaee5ffbdba, 11),  // 60[2048]
+        (0x3a360008241f307a, 11),  // 61[2048]
         (0x56bc6b9002183114, 11),  // 62[2048]
         (0xe7ce270084182c36, 12),  // 63[4096]
     ];
