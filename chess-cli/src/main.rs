@@ -1,6 +1,11 @@
 use std::io;
+use std::fs;
+use std::collections::HashMap;
 use std::time::Instant;
+
 use clap::{AppSettings, Clap};
+use crossbeam::channel;
+use threadpool::ThreadPool;
 
 mod board;
 
@@ -21,29 +26,38 @@ enum SubCommand {
 
 #[derive(Clap)]
 struct Divide {
-    #[clap(short)]
+    #[clap(short, long)]
     fen: String,
 
-    #[clap(short)]
+    #[clap(short, long)]
     depth: u8,
 }
 
 #[derive(Clap)]
 struct Analyze {
-    #[clap(short)]
+    #[clap(short, long)]
     fen: String,
 
-    #[clap(short)]
+    #[clap(short, long)]
     depth: u32,
 
-    #[clap(short)]
+    #[clap(short, long)]
     tt_bits: Option<u8>,
 }
 
 #[derive(Clap)]
 struct Magic {
-    #[clap(short)]
+    #[clap(short, long)]
     piece: String,
+
+    #[clap(short, long)]
+    iterations: Option<u32>,
+
+    #[clap(short, long, default_value = "1")]
+    workers: usize,
+
+    #[clap(short, long)]
+    sourcefile: Option<String>,
 }
 
 fn main() -> Result<(), io::Error> {
@@ -91,49 +105,109 @@ fn main() -> Result<(), io::Error> {
             Ok(())
         },
         SubCommand::Magic(cmd) => {
-            let (maskgen, movegen, target): (
+            let default_bbs = chess_lib::magic::MagicBitBoards::default();
+            let (maskgen, movegen): (
                 fn (chess_lib::types::BitCoord) -> chess_lib::types::BitBoard,
                 fn (chess_lib::types::BitCoord, chess_lib::types::BitBoard) -> chess_lib::types::BitBoard,
-                usize,
             ) = match cmd.piece.as_str() {
-                "rook" => (chess_lib::magic::rook_mask, chess_lib::magic::rook_moves, 2056),
-                "bishop" => (chess_lib::magic::bishop_mask, chess_lib::magic::bishop_moves, 128),
+                "rook" => (chess_lib::magic::rook_mask, chess_lib::magic::rook_moves),
+                "bishop" => (chess_lib::magic::bishop_mask, chess_lib::magic::bishop_moves),
                 _ => panic!("Unknown piece: {}", cmd.piece),
             };
 
-            println!("=== {} ===", cmd.piece);
-            let mut total_size = 0;
+            let mut bests: Vec<chess_lib::magic::Magic> = Vec::with_capacity(64);
             for c in 0..64 {
-                let mut best: u64 = 0;
-                let mut best_size: usize = usize::MAX;
-
-                let mut iterations = 0;
                 let coord = chess_lib::types::BitCoord(1 << c);
-                let mask = maskgen(coord);
-                let moves = chess_lib::magic::generate_moves(coord, mask, movegen);
-
-                while iterations < 10_000 && best_size > target {
-                    iterations += 1;
-                    let magic = rand::random::<u64>();
-                    match chess_lib::magic::Magic::generate(magic, mask, &moves) {
-                        Some(m) => {
-                            let size = m.size();
-                            if best_size == 0 || size < best_size {
-                                best_size = size;
-                                best = magic;
-                            }
-                        },
-                        None => (),
-                    }
-                }
-
-                println!("0x{:016x},  // {}[{}]", best, c, best_size);
-                total_size += best_size;
+                let magic = match cmd.piece.as_str() {
+                    "rook" => default_bbs.rook(coord),
+                    "bishop" => default_bbs.bishop(coord),
+                    _ => panic!("Unknown piece: {}", cmd.piece),
+                };
+                bests.push(magic.clone());
             }
 
-            println!("Total size: {} bytes", total_size * 8);
+            let (result_tx, result_rx) = channel::unbounded::<(usize, chess_lib::magic::Magic)>();
+
+            let pool = ThreadPool::new(cmd.workers);
+
+            let sourcefile = cmd.sourcefile;
+
+            println!("=== {} (iterations={}, workers={}) ===", cmd.piece, cmd.iterations.unwrap_or(0), cmd.workers);
+            let mut iteration = 0;
+
+            // Start off conservative.
+            let mut batch_size = 100;
+
+            loop {
+                iteration += 1;
+                let iteration_start = Instant::now();
+                for c in 0..64 {
+                    let best = bests[c].clone();
+                    let tx = result_tx.clone();
+                    pool.execute(move|| {
+                        let coord = chess_lib::types::BitCoord(1 << c);
+                        let mask = maskgen(coord);
+                        let moves = chess_lib::magic::generate_moves(coord, mask, movegen);
+                        let mut boards_cache: HashMap<chess_lib::types::BitBoard, Vec<chess_lib::types::BitBoard>> = HashMap::new();
+
+                        for _ in 0..batch_size {
+                            let magic = rand::random::<u64>();
+                            match chess_lib::magic::Magic::generate(magic, mask, &moves, &mut boards_cache, best.size() - 1) {
+                                Some(m) => {
+                                    let size = m.size();
+                                    if size < best.size() {
+                                        tx.send((c, m)).expect("able to report results");
+                                        return;
+                                    }
+                                },
+                                None => (),
+                            }
+                        }
+                        tx.send((c, best)).expect("able to report results");
+                    });
+                }
+
+                result_rx.iter().take(64).for_each(|(c, m)| {
+                    if m.size() < bests[c].size() {
+                        println!("(0x{:016x}, {}),  // {}[{}] !! (was {})", m.magic(), 64 - m.shift(), c, m.size(), bests[c].size());
+
+                        if sourcefile.is_some() {
+                            update_magic(sourcefile.clone().unwrap(), c, &bests[c], &m);
+                        }
+                        bests[c] = m;
+                    }
+                });
+
+                let duration = iteration_start.elapsed();
+                let per_second = (64 * batch_size * 1000) / duration.as_millis();
+
+                println!("[#{}, {} cycles, took {:.1}s, {} magics/s] Total size: {} bytes", iteration, batch_size, (duration.as_millis() as f64) / 1000.0, per_second, bests.iter().map(|m| m.size()).sum::<usize>() * 8);
+
+                batch_size = (per_second * 10) / 64;
+
+                if iteration == cmd.iterations.unwrap_or(0) {
+                    break;
+                }
+            }
 
             Ok(())
         },
     }
+}
+
+fn update_magic(sourcefile: String, c: usize, prev: &chess_lib::magic::Magic, new: &chess_lib::magic::Magic) {
+    let text = fs::read_to_string(&sourcefile).expect("Failed to read magic source file");
+
+    let edited: String = text
+        .split("\n")
+        .map(|l| {
+            if l.contains(&format!("0x{:016x}", prev.magic())) {
+                format!("        (0x{:016x}, {}),  // {}[{}]", new.magic(), 64 - new.shift(), c, new.size())
+            } else {
+                l.to_owned()
+            }
+        })
+        .fold(String::new(), |a, b| a + "\n" + &b);
+
+    fs::write(&sourcefile, edited).expect("Failed to write magic source file");
 }
